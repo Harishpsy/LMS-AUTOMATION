@@ -226,18 +226,6 @@ body {
   color: var(--muted);
 }
 
-.opts li.ok {
-  background: var(--ok-soft);
-  border-color: var(--ok);
-  font-weight: 600;
-}
-
-.opts li.ok i {
-  background: var(--ok);
-  border-color: var(--ok);
-  color: #fff;
-}
-
 .ans {
   display: inline-flex;
   gap: 8px;

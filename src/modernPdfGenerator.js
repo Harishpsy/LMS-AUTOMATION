@@ -153,18 +153,14 @@ function buildTransparentOverlayHtml({ questions, dateString, isHindi, tableMap 
         }
       }
 
-      // Options (Pills with circular key, correct answer in green)
+      // Options (Pills with circular key badges)
       if (q.options && q.options.length > 0) {
         srcHtml += `<ul class="opts">`;
-        const ansMatch = String(q.answer || '').match(/(?:Option\s*|[^\d]*)?([1-5])\s*\)?/i);
-        const ansDigit = ansMatch ? ansMatch[1] : null;
-
         q.options.forEach(opt => {
           const m = String(opt).match(/^\s*([1-5])\s*[\)\.]\s*(.*)$/s);
           const digit = m ? m[1] : '';
           const optText = m ? m[2] : opt;
-          const isOk = ansDigit && digit === ansDigit;
-          srcHtml += `<li class="${isOk ? 'ok' : ''}"><i>${digit}</i><span>${inline(optText)}</span></li>`;
+          srcHtml += `<li><i>${digit}</i><span>${inline(optText)}</span></li>`;
         });
         srcHtml += `</ul>`;
       }
