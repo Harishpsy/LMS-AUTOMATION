@@ -60,7 +60,8 @@ function inline(text) {
     linkRe.lastIndex = 0;
     while ((m = linkRe.exec(chunk)) !== null) {
       out += esc(chunk.slice(last, m.index));
-      const label = m[1] || m[3], url = m[2] || m[3];
+      let label = m[1] || m[3];
+      let url = (m[2] || m[3]).replace(/&amp;/g, '&');
       out += `<a href="${esc(url)}">${esc(label)}</a>`;
       last = linkRe.lastIndex;
     }
@@ -240,6 +241,7 @@ function buildTransparentOverlayHtml({ questions, dateString, isHindi, tableMap 
   <title>Modern Daily Quiz</title>
   <style>
     ${css}
+    a { color: #0563C1; text-decoration: underline; }
     .ttl { margin: 4px 0 10px; text-align: center; color: var(--red); font: 700 20px Cambria, serif; }
     .sect { margin: 8px 0 8px; text-align: center; color: var(--red); font: 700 15px Cambria, serif; }
   </style>
@@ -403,6 +405,53 @@ function buildTransparentOverlayHtml({ questions, dateString, isHindi, tableMap 
 }
 
 /**
+ * Clones interactive annotations (e.g. hyperlinks) from a source PDF page to a destination PDF page.
+ */
+function transferAnnotations(srcDoc, srcPage, dstDoc, dstPage) {
+  const srcAnnotsRef = srcPage.node.get(PDFName.of('Annots'));
+  if (!srcAnnotsRef) return;
+  const srcAnnots = srcDoc.context.lookup(srcAnnotsRef);
+  if (!srcAnnots || typeof srcAnnots.size !== 'function' || srcAnnots.size() === 0) return;
+
+  const existingAnnotsRef = dstPage.node.get(PDFName.of('Annots'));
+  let dstAnnotsList = [];
+  if (existingAnnotsRef) {
+    const existing = dstDoc.context.lookup(existingAnnotsRef);
+    if (existing && typeof existing.size === 'function') {
+      for (let k = 0; k < existing.size(); k++) {
+        dstAnnotsList.push(existing.get(k));
+      }
+    }
+  }
+
+  for (let j = 0; j < srcAnnots.size(); j++) {
+    const annotRef = srcAnnots.get(j);
+    const annotObj = srcDoc.context.lookup(annotRef);
+    if (!annotObj || typeof annotObj.entries !== 'function') continue;
+
+    const newDict = dstDoc.context.obj({});
+    for (const [k, v] of annotObj.entries()) {
+      const val = srcDoc.context.lookup(v);
+      if (k.asString() === '/A' && val && typeof val.entries === 'function') {
+        const actionDict = dstDoc.context.obj({});
+        for (const [ak, av] of val.entries()) {
+          const aVal = srcDoc.context.lookup(av);
+          actionDict.set(ak, aVal || av);
+        }
+        newDict.set(k, actionDict);
+      } else {
+        newDict.set(k, val);
+      }
+    }
+    dstAnnotsList.push(dstDoc.context.register(newDict));
+  }
+
+  if (dstAnnotsList.length > 0) {
+    dstPage.node.set(PDFName.of('Annots'), dstDoc.context.obj(dstAnnotsList));
+  }
+}
+
+/**
  * Ensures the authentic master Word template PDF is generated and cached.
  */
 async function ensureMasterTemplatePdf(log) {
@@ -561,6 +610,9 @@ async function generateModernDailyPdf(sourceFilePath, onLog) {
       width: bgPage.getWidth(),
       height: bgPage.getHeight()
     });
+
+    // Transfer interactive hyperlinks from Playwright question cards (explanations, etc.)
+    transferAnnotations(pwPdfDoc, pwPdfDoc.getPage(i), finalDoc, bgPage);
 
     // Dynamically patch sequential page number in the authentic footer (e.g., 4, 5, 6...)
     const currentPageNum = 3 + i;
