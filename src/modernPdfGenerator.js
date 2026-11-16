@@ -22,7 +22,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { PDFDocument, rgb, StandardFonts } = require('pdf-lib');
+const { PDFDocument, rgb, StandardFonts, PDFName, PDFString } = require('pdf-lib');
 const { chromium } = require('playwright');
 const {
   parseDailySource,
@@ -353,10 +353,10 @@ function buildTransparentOverlayHtml({ questions, dateString, isHindi, tableMap 
         var tocCardHtml = '<div style="font: 700 22pt Cambria, serif; color: #FF0000; text-align: center; margin: 0 0 10px 0; letter-spacing: 0.5px;">AFFAIRSCLOUD TODAY</div>';
         tocCardHtml += '<div style="font: 600 13pt Calibri, sans-serif; color: #2e75b6; margin: 0 0 8px 0;">Table of Contents</div>';
         tocCardHtml += '<div style="list-style: none; padding: 0; margin: 0;">';
-        tocCardHtml += '<div style="display: flex; align-items: baseline; justify-content: space-between; padding: 2px 0; font-size: 10.5pt; font-family: Cambria, serif; color: #111;"><span style="font-weight:700;">' + ${JSON.stringify(mainTitleText)} + '</span><span style="flex: 1; border-bottom: 1px dotted #888; margin: 0 8px; position: relative; top: -3px;"></span><span style="font-weight: 700; color: #d92525;">4</span></div>';
+        tocCardHtml += '<div class="toc-row" data-target-page="4" style="display: flex; align-items: baseline; justify-content: space-between; padding: 2px 0; font-size: 10.5pt; font-family: Cambria, serif; color: #111; cursor: pointer;"><span style="font-weight:700;">' + ${JSON.stringify(mainTitleText)} + '</span><span style="flex: 1; border-bottom: 1px dotted #888; margin: 0 8px; position: relative; top: -3px;"></span><span style="font-weight: 700; color: #d92525;">4</span></div>';
 
         for (var sName in sectionPageMap) {
-          tocCardHtml += '<div style="display: flex; align-items: baseline; justify-content: space-between; padding: 2px 0; font-size: 10.5pt; font-family: Cambria, serif; color: #111;"><span>' + sName + '</span><span style="flex: 1; border-bottom: 1px dotted #888; margin: 0 8px; position: relative; top: -3px;"></span><span style="font-weight: 700; color: #d92525;">' + sectionPageMap[sName] + '</span></div>';
+          tocCardHtml += '<div class="toc-row" data-target-page="' + sectionPageMap[sName] + '" style="display: flex; align-items: baseline; justify-content: space-between; padding: 2px 0; font-size: 10.5pt; font-family: Cambria, serif; color: #111; cursor: pointer;"><span>' + sName + '</span><span style="flex: 1; border-bottom: 1px dotted #888; margin: 0 8px; position: relative; top: -3px;"></span><span style="font-weight: 700; color: #d92525;">' + sectionPageMap[sName] + '</span></div>';
         }
         tocCardHtml += '</div>';
 
@@ -379,7 +379,7 @@ function buildTransparentOverlayHtml({ questions, dateString, isHindi, tableMap 
         tocCardHtml += '<li style="margin-bottom: 2px;">Recognised as community role models</li>';
         tocCardHtml += '</ul>';
         tocCardHtml += '<div style="font-weight: 700; margin-top: 6px;"><span>📱</span> Scan the QR Code to submit your Details or <span>👉</span> Click the below link:</div>';
-        tocCardHtml += '<div style="margin-top: 3px;"><a href="https://forms.gle/xbxExzt1ETcPMfFZ7" style="color: #0563C1; font-weight: 700; text-decoration: underline;">https://forms.gle/xbxExzt1ETcPMfFZ7</a></div>';
+        tocCardHtml += '<div style="margin-top: 3px;"><a href="https://forms.gle/xbxExzt1ETcPMfFZ7" class="pdf-external-link" data-url="https://forms.gle/xbxExzt1ETcPMfFZ7" style="color: #0563C1; font-weight: 700; text-decoration: underline;">https://forms.gle/xbxExzt1ETcPMfFZ7</a></div>';
         tocCardHtml += '</div>';
         tocCardHtml += '<div style="flex-shrink: 0;"><img src="' + ${JSON.stringify(qrUri)} + '" style="width: 110px; height: 110px; display: block;" /></div>';
         tocCardHtml += '</div>';
@@ -460,6 +460,44 @@ async function generateModernDailyPdf(sourceFilePath, onLog) {
     printBackground: false, // Transparent!
     margin: { top: 0, right: 0, bottom: 0, left: 0 }
   });
+
+  // Extract clickable link coordinates from Page 3 (TOC)
+  const p3Links = await page.evaluate(() => {
+    const p3El = document.querySelectorAll('.page')[0];
+    if (!p3El) return [];
+    const pageRect = p3El.getBoundingClientRect();
+    const list = [];
+    p3El.querySelectorAll('.toc-row').forEach(el => {
+      const r = el.getBoundingClientRect();
+      const targetPage = parseInt(el.getAttribute('data-target-page'), 10);
+      if (targetPage) {
+        list.push({
+          type: 'goto',
+          targetPage,
+          x: r.left - pageRect.left,
+          y: r.top - pageRect.top,
+          width: r.width,
+          height: r.height,
+        });
+      }
+    });
+    p3El.querySelectorAll('.pdf-external-link').forEach(el => {
+      const r = el.getBoundingClientRect();
+      const url = el.getAttribute('data-url') || el.href;
+      if (url) {
+        list.push({
+          type: 'uri',
+          url,
+          x: r.left - pageRect.left,
+          y: r.top - pageRect.top,
+          width: r.width,
+          height: r.height,
+        });
+      }
+    });
+    return list;
+  });
+
   await browser.close();
 
   try { fs.unlinkSync(runnerHtmlPath); } catch {}
@@ -497,6 +535,7 @@ async function generateModernDailyPdf(sourceFilePath, onLog) {
   finalDoc.addPage(tocBasePage);
 
   // Question pages: Overlay transparent Playwright question cards onto authentic Word pages
+  const timesFont = await finalDoc.embedFont(StandardFonts.TimesRoman);
   const pwCount = pwPdfDoc.getPageCount();
 
   for (let i = 1; i < pwCount; i++) {
@@ -522,6 +561,26 @@ async function generateModernDailyPdf(sourceFilePath, onLog) {
       width: bgPage.getWidth(),
       height: bgPage.getHeight()
     });
+
+    // Dynamically patch sequential page number in the authentic footer (e.g., 4, 5, 6...)
+    const currentPageNum = 3 + i;
+    const pageNumStr = String(currentPageNum);
+    bgPage.drawRectangle({
+      x: 515,
+      y: 12,
+      width: 45,
+      height: 20,
+      color: rgb(1, 1, 1),
+    });
+    const textWidth = timesFont.widthOfTextAtSize(pageNumStr, 11);
+    bgPage.drawText(pageNumStr, {
+      x: 533.2 - (textWidth / 2),
+      y: 19.2,
+      size: 11,
+      font: timesFont,
+      color: rgb(0, 0, 0),
+    });
+
     finalDoc.addPage(bgPage);
   }
 
@@ -534,26 +593,83 @@ async function generateModernDailyPdf(sourceFilePath, onLog) {
   // 5. Dynamically patch page number on the Aspirant Queries page
   const finalTotal = finalDoc.getPageCount();
   const aspirantPage = finalDoc.getPage(finalTotal - 2);
-  const helveticaFont = await finalDoc.embedFont(StandardFonts.Helvetica);
 
   aspirantPage.drawRectangle({
     x: 515,
     y: 12,
-    width: 50,
-    height: 18,
+    width: 45,
+    height: 20,
     color: rgb(1, 1, 1),
   });
 
   const aspPageNumStr = String(finalTotal - 1);
+  const aspTextWidth = timesFont.widthOfTextAtSize(aspPageNumStr, 11);
   aspirantPage.drawText(aspPageNumStr, {
-    x: 532,
-    y: 18,
-    size: 9.5,
-    font: helveticaFont,
-    color: rgb(0.2, 0.2, 0.2),
+    x: 533.2 - (aspTextWidth / 2),
+    y: 19.2,
+    size: 11,
+    font: timesFont,
+    color: rgb(0, 0, 0),
   });
 
-  // 6. Save final PDF
+  // 6. Add interactive PDF Link Annotations to Page 3 (Table of Contents & External Links)
+  if (p3Links && p3Links.length > 0) {
+    const p3Page = finalDoc.getPage(2); // Page 3 is index 2 (1-based page 3)
+    const p3Width = p3Page.getWidth();
+    const p3Height = p3Page.getHeight();
+    const cssPageWidth = 793.7008; // 210mm in CSS px @ 96 DPI
+    const cssPageHeight = 1122.5197; // 297mm in CSS px @ 96 DPI
+    const scaleX = p3Width / cssPageWidth;
+    const scaleY = p3Height / cssPageHeight;
+
+    const annots = [];
+
+    for (const l of p3Links) {
+      const x1 = l.x * scaleX;
+      const x2 = (l.x + l.width) * scaleX;
+      const y1 = p3Height - ((l.y + l.height) * scaleY);
+      const y2 = p3Height - (l.y * scaleY);
+
+      if (l.type === 'goto' && l.targetPage) {
+        const targetIndex = l.targetPage - 1;
+        if (targetIndex >= 0 && targetIndex < finalDoc.getPageCount()) {
+          const targetRef = finalDoc.getPage(targetIndex).ref;
+          const gotoAnnot = finalDoc.context.obj({
+            Type: 'Annot',
+            Subtype: 'Link',
+            Rect: [x1, y1, x2, y2],
+            Border: [0, 0, 0],
+            A: {
+              Type: 'Action',
+              S: 'GoTo',
+              D: [targetRef, 'XYZ', null, null, null],
+            },
+          });
+          annots.push(finalDoc.context.register(gotoAnnot));
+        }
+      } else if (l.type === 'uri' && l.url) {
+        const uriAnnot = finalDoc.context.obj({
+          Type: 'Annot',
+          Subtype: 'Link',
+          Rect: [x1, y1, x2, y2],
+          Border: [0, 0, 0],
+          A: {
+            Type: 'Action',
+            S: 'URI',
+            URI: PDFString.of(l.url),
+          },
+        });
+        annots.push(finalDoc.context.register(uriAnnot));
+      }
+    }
+
+    if (annots.length > 0) {
+      p3Page.node.set(PDFName.of('Annots'), finalDoc.context.obj(annots));
+      log({ type: 'info', message: `🔗 Added ${annots.length} interactive navigation links to Table of Contents on Page 3` });
+    }
+  }
+
+  // 7. Save final PDF
   const dateTag = String(raw.dateString).replace(/[,&\s]+/g, '_').replace(/_+/g, '_');
   const dateFolder = getDateFolder(raw.dateString);
   const dailyDir = path.join(OUTPUT_DIR, 'Daily', dateFolder);
