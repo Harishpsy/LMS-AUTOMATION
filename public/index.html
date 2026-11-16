@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CareersCloud LMS — Daily Quiz Automation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css?v=9">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-content">
+        <div class="brand">
+          <div class="logo-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+            </svg>
+          </div>
+          <div>
+            <h1>CareersCloud LMS</h1>
+            <p class="subtitle">Daily Quiz Question Automation</p>
+          </div>
+        </div>
+
+        <div class="header-actions">
+          <button id="themeToggleBtn" class="theme-toggle-btn" title="Toggle Light / Dark Mode" aria-label="Toggle Theme">
+            <span id="themeIconSun" class="theme-icon hidden">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="5"></circle>
+                <line x1="12" y1="1" x2="12" y2="3"></line>
+                <line x1="12" y1="21" x2="12" y2="23"></line>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                <line x1="1" y1="12" x2="3" y2="12"></line>
+                <line x1="21" y1="12" x2="23" y2="12"></line>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+              </svg>
+            </span>
+            <span id="themeIconMoon" class="theme-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+              </svg>
+            </span>
+            <span id="themeToggleLabel">Light Mode</span>
+          </button>
+
+          <button id="btnOpenLoginModal" class="btn-credentials-header" title="Enter or Change LMS Username & Password in UI">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+            <span>LMS Credentials</span>
+          </button>
+
+          <div id="authStatusBadge" class="auth-status-badge" title="LMS Login Session Status">
+            <span id="authStatusDot" class="status-dot"></span>
+            <span id="authStatusLabel">Checking Session...</span>
+            <button id="btnRelogin" class="btn-relogin-header" title="Refresh / Re-authenticate LMS Session">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              <span>Re-login</span>
+            </button>
+          </div>
+
+          <div class="system-status-badge">
+            <span class="status-dot"></span>
+            <span id="courseStatusLabel">Course 104 Ready</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <!-- Navigation Tabs -->
+      <nav class="nav-tabs-bar" style="display: flex; gap: 12px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+        <a href="index.html" class="nav-tab-link active" style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: var(--radius-md); font-weight: 600; font-size: 14px; text-decoration: none; color: #fff; background: linear-gradient(135deg, var(--accent-blue), var(--accent-blue-hover)); box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+          <span>LMS Question Uploader</span>
+        </a>
+        <a href="generator.html" class="nav-tab-link" style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: var(--radius-md); font-weight: 600; font-size: 14px; text-decoration: none; color: var(--text-muted); background: var(--bg-card); border: 1px solid var(--border-color);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><circle cx="10" cy="13" r="2"></circle><path d="m20 17-1.09-1.09a2 2 0 0 0-2.82 0L10 22"></path></svg>
+          <span>Daily &amp; Monthly PDF Generator</span>
+        </a>
+      </nav>
+      <!-- Global Error / Alert Banner -->
+      <div id="globalErrorBanner" class="global-error-banner hidden" role="alert">
+        <div class="error-banner-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+        </div>
+        <div class="error-banner-body">
+          <div class="error-banner-header">
+            <span class="error-badge">ERROR</span>
+            <strong id="globalErrorTitle" class="error-banner-title">Error Occurred</strong>
+            <span id="globalErrorTime" class="error-banner-time"></span>
+          </div>
+          <div id="globalErrorMessage" class="error-banner-message"></div>
+          <div id="globalErrorDetails" class="error-banner-details hidden"></div>
+        </div>
+        <div class="error-banner-actions">
+          <button id="btnCopyError" class="btn-error-action" onclick="copyErrorDetails()" title="Copy error message to clipboard">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            Copy
+          </button>
+          <button id="btnToggleErrorDetails" class="btn-error-action hidden" onclick="toggleErrorDetails()">Details</button>
+          <button class="error-banner-close" onclick="dismissGlobalError()" title="Dismiss">&times;</button>
+        </div>
+      </div>
+
+      <!-- Step 1: Target Course & Quiz Selection -->
+      <section class="card config-card">
+        <div class="card-header">
+          <div class="step-num">1</div>
+          <div>
+            <h2>Target LMS Course & Quiz Selection</h2>
+            <p>Select the Course and the Quiz where questions should be uploaded</p>
+          </div>
+        </div>
+
+        <div class="course-quiz-grid">
+          <div class="input-field" style="max-width: 180px;">
+            <label>Course ID</label>
+            <input type="text" id="courseIdInput" value="104" placeholder="e.g. 104">
+          </div>
+
+          <div class="select-group" style="flex: 2;">
+            <label for="quizTargetSelect">Target Quiz in Course (or latest):</label>
+            <div style="display: flex; gap: 10px;">
+              <select id="quizTargetSelect" class="styled-select">
+                <option value="latest">⚡ Latest Created Quiz (Click First Eye Icon)</option>
+              </select>
+              <button id="btnRefreshQuizzes" class="btn btn-secondary" title="Refresh Quizzes from LMS">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                Refresh
+              </button>
+            </div>
+          </div>
+
+          <div class="input-field" style="flex: 2;">
+            <label>Or Search by Title / Direct Quiz ID</label>
+            <input type="text" id="manualQuizTitleInput" placeholder="e.g. DAILY CA QUIZ or 22006">
+          </div>
+
+          <div class="input-field" style="max-width: 150px;">
+            <label>Start from Q#</label>
+            <input type="number" id="startFromQInput" value="1" min="1" max="100" title="Set to 23 or 24 to skip already uploaded questions">
+          </div>
+        </div>
+      </section>
+
+      <!-- Step 2: Document Selection -->
+      <section class="card config-card">
+        <div class="card-header">
+          <div class="step-num">2</div>
+          <div>
+            <h2>Select Quiz Document</h2>
+            <p>Pick from workspace folder or upload any .docx file from your computer</p>
+          </div>
+        </div>
+
+        <!-- Source Tabs -->
+        <div class="source-tabs">
+          <button id="tabFolder" class="source-tab active" onclick="switchTab('folder')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            Workspace Folder
+          </button>
+          <button id="tabUpload" class="source-tab" onclick="switchTab('upload')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Upload from Computer
+          </button>
+        </div>
+
+        <!-- Tab: Workspace Folder -->
+        <div id="panelFolder" class="tab-panel">
+          <div class="file-selection-area">
+            <div class="select-group" style="flex:1;">
+              <label for="fileSelect">Available Quiz Files:</label>
+              <select id="fileSelect" class="styled-select">
+                <option value="">Loading files...</option>
+              </select>
+            </div>
+            <button id="btnParse" class="btn btn-primary">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+              Parse Document
+            </button>
+          </div>
+        </div>
+
+        <!-- Tab: Upload from Computer -->
+        <div id="panelUpload" class="tab-panel hidden">
+          <div id="dropZone" class="drop-zone">
+            <input type="file" id="fileUploadInput" accept=".docx" class="hidden-file-input">
+            <div class="drop-zone-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+            </div>
+            <p class="drop-zone-text">Drag &amp; drop your <strong>.docx</strong> file here</p>
+            <p class="drop-zone-sub">or</p>
+            <button class="btn btn-secondary" onclick="document.getElementById('fileUploadInput').click()">
+              Browse File
+            </button>
+            <p id="uploadedFileName" class="uploaded-file-name hidden"></p>
+          </div>
+          <div style="display:flex; justify-content:flex-end; margin-top: 12px;">
+            <button id="btnParseUpload" class="btn btn-primary" disabled>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+              Upload &amp; Parse
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Step 3: Real-Time Execution & Controls -->
+      <section class="card action-card">
+        <div class="card-header">
+          <div class="step-num">3</div>
+          <div>
+            <h2>Execute Automated Question Upload</h2>
+            <p>Bot clicks the Eye icon and auto-injects all Single & Group questions</p>
+          </div>
+        </div>
+
+        <div class="action-controls">
+          <div class="mode-toggle">
+            <label class="switch">
+              <input type="checkbox" id="headlessToggle" checked onchange="updateToggleLabel(this)">
+              <span class="slider"></span>
+            </label>
+            <div>
+              <span id="toggleModeLabel" class="toggle-label" style="color: var(--accent-green);">
+                👁️ Headful — Chrome window will open & be visible
+              </span>
+              <div id="toggleModeHint" style="font-size:11px; color: var(--text-dim); margin-top:2px;">
+                Toggle OFF to run silently in the background
+              </div>
+            </div>
+          </div>
+
+          <div class="workers-control">
+            <label for="parallelWorkersSelect" class="workers-label" title="Run multiple browser workers simultaneously to upload questions in parallel">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+              </svg>
+              <span>Parallel Workers:</span>
+            </label>
+            <select id="parallelWorkersSelect" class="workers-select">
+              <option value="1" selected>1 Worker (Sequential — Strict Order Guaranteed)</option>
+              <option value="2">2 Workers (2x Speed)</option>
+              <option value="3">3 Workers (3x Speed)</option>
+              <option value="4">4 Workers (4x Speed)</option>
+              <option value="5">5 Workers (5x Turbo)</option>
+            </select>
+          </div>
+
+          <div class="button-group">
+            <button id="btnStartUpload" class="btn btn-success" disabled>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              Start Automated Upload
+            </button>
+          </div>
+        </div>
+
+        <!-- Progress Bar with Live Stopwatch Timer & Stats -->
+        <div id="progressContainer" class="progress-container hidden">
+          <div class="progress-info">
+            <span id="progressText">Uploading questions...</span>
+            <div class="progress-stats-group">
+              <span id="uploadTimerBadge" class="timer-badge" title="Live Elapsed Time">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span id="uploadElapsedTime">00:00</span>
+              </span>
+              <span id="uploadEtaBadge" class="eta-badge hidden" title="Estimated Time Remaining">
+                ETA: <span id="uploadEtaTime">--:--</span>
+              </span>
+              <span id="progressPercent">0%</span>
+            </div>
+          </div>
+          <div class="progress-bar-bg">
+            <div id="progressBar" class="progress-bar-fill" style="width: 0%"></div>
+          </div>
+          <div id="progressStatsFooter" class="progress-stats-footer hidden">
+            <span id="progressSpeedPill" class="stat-pill">⚡ Speed: <strong id="progressSpeedVal">-- s/q</strong></span>
+            <span id="progressTotalTimePill" class="stat-pill highlight">⏱️ Total Time: <strong id="progressTotalTimeVal">--</strong></span>
+          </div>
+        </div>
+
+        <!-- Live Activity Log -->
+        <div class="terminal-card">
+          <div class="terminal-header">
+            <div class="terminal-dots">
+              <span></span><span></span><span></span>
+            </div>
+            <span class="terminal-title">Real-Time Execution Log</span>
+            <button id="btnClearLog" class="btn-text">Clear</button>
+          </div>
+          <div id="logOutput" class="terminal-body">
+            <div class="log-line text-muted">[System ready. Choose a quiz and click "Start Automated Upload"]</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Step 4a: Extracted Media Gallery (tables + pie charts) -->
+      <section id="mediaGallerySection" class="card media-gallery-card hidden">
+        <div class="card-header media-gallery-toggle" onclick="toggleMediaGallery()">
+          <div class="step-num" style="background: linear-gradient(135deg,#8b5cf6,#a78bfa);">🖼</div>
+          <div style="flex:1;">
+            <h2>Extracted Tables &amp; Images</h2>
+            <p>Preview all table screenshots and embedded chart images from the document</p>
+          </div>
+          <div class="badge-group">
+            <span id="mediaCountBadge" class="badge" style="background:rgba(139,92,246,0.15);color:var(--accent-purple);border:1px solid rgba(139,92,246,0.3);">0 Items</span>
+            <span id="mediaChevron" style="font-size:18px;color:var(--text-muted);transition:transform 0.25s;display:inline-block;">&#9660;</span>
+          </div>
+        </div>
+        <div id="mediaGalleryBody">
+          <div id="tablesGallery" class="media-gallery-group hidden">
+            <div class="media-gallery-label">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
+              Table Screenshots
+              <span id="tableCountPill" class="pill" style="margin-left:6px;font-size:11px;"></span>
+            </div>
+            <div id="tableThumbsGrid" class="media-thumbs-grid"></div>
+          </div>
+          <div id="imagesGallery" class="media-gallery-group hidden">
+            <div class="media-gallery-label">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              Embedded Charts &amp; Images
+              <span id="imageCountPill" class="pill" style="margin-left:6px;font-size:11px;"></span>
+            </div>
+            <div id="imageThumbsGrid" class="media-thumbs-grid"></div>
+          </div>
+          <div id="mediaEmptyState" class="media-empty hidden">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="36" height="36"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            <p>No tables or images were found in this document</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Step 4: Question Preview Accordion -->
+      <section id="previewSection" class="card preview-card hidden">
+        <div class="card-header">
+          <div class="step-num">4</div>
+          <div class="preview-header-meta">
+            <div>
+              <h2>Parsed Questions Preview</h2>
+              <p>Review questions, choices, answers, and explanations before publishing</p>
+            </div>
+            <div class="badge-group" style="display: flex; gap: 8px; align-items: center;">
+              <button id="btnExportParsedPdf" class="btn btn-secondary" style="background: linear-gradient(135deg, #2563eb, #3b82f6); color: #fff; border: none; padding: 6px 14px; font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; gap: 6px;" title="Export this parsed document as DOCX">
+                📘 Export to DOCX
+              </button>
+              <span id="previewHealthBadge" class="badge" style="display:none;"></span>
+              <span id="previewCountBadge" class="badge badge-accent">30 Questions</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Issue Summary Alert Banner if any errors/missing fields are detected -->
+        <div id="previewIssueBanner" class="preview-issue-banner hidden">
+          <div class="issue-banner-header">
+            <span class="issue-banner-icon">⚠️</span>
+            <div class="issue-banner-text">
+              <strong id="previewIssueCountText">Issues Detected in Parsed Questions</strong>
+              <span id="previewIssueSummaryDetails">Some questions are missing options, answer keys, or explanations.</span>
+            </div>
+          </div>
+          <div id="previewIssueFilterTabs" class="preview-issue-filter-tabs">
+            <button type="button" class="issue-filter-btn active" data-filter="all">All Questions (<span id="countFilterAll">0</span>)</button>
+            <button type="button" class="issue-filter-btn btn-filter-has-issues" data-filter="issues">⚠️ Only with Issues (<span id="countFilterIssues">0</span>)</button>
+            <button type="button" class="issue-filter-btn" data-filter="clean">✅ Healthy (<span id="countFilterClean">0</span>)</button>
+          </div>
+        </div>
+
+        <div id="questionsList" class="questions-list"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- LMS Login / Credentials Modal -->
+  <div id="loginModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="loginModalTitle">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="modal-icon-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+          </div>
+          <div>
+            <h3 id="loginModalTitle">LMS Admin Credentials</h3>
+            <p class="modal-subtitle">Login to CareersCloud LMS directly from your browser</p>
+          </div>
+        </div>
+        <button id="btnCloseLoginModal" class="modal-close-btn" type="button" title="Close">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div id="modalLoginAlert" class="modal-alert hidden"></div>
+
+        <div class="modal-form-row">
+          <label for="modalEmailInput">Email / Username <span class="required-star">*</span></label>
+          <div class="modal-input-wrap">
+            <svg class="modal-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+              <polyline points="22,6 12,13 2,6"></polyline>
+            </svg>
+            <input type="text" id="modalEmailInput" placeholder="e.g. harish@careerscloud.in" autocomplete="username">
+          </div>
+        </div>
+
+        <div class="modal-form-row">
+          <label for="modalPasswordInput">Password <span class="required-star">*</span></label>
+          <div class="modal-input-wrap">
+            <svg class="modal-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+            <input type="password" id="modalPasswordInput" placeholder="Enter password" autocomplete="current-password">
+            <button type="button" id="btnTogglePasswordVisibility" class="btn-eye-toggle" title="Show or hide password">
+              <svg id="eyeShowSvg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+              <svg id="eyeHideSvg" class="hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                <line x1="1" y1="1" x2="23" y2="23"></line>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="modal-options-row">
+          <label class="modal-checkbox-label">
+            <input type="checkbox" id="modalRememberCheckbox" checked>
+            <span>Save to <code>.env</code> file (automatic re-authentication)</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" id="btnCancelLoginModal" class="btn btn-secondary">Cancel</button>
+        <button type="button" id="btnSubmitLogin" class="btn btn-primary">
+          <span id="loginBtnSpinner" class="spinner-btn hidden"></span>
+          <span id="loginBtnText">Sign In &amp; Save</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lightbox for image preview -->
+  <div id="mediaLightbox" onclick="closeLightbox()">
+    <button id="mediaLightboxClose" onclick="closeLightbox()" title="Close">&times;</button>
+    <img id="mediaLightboxImg" src="" alt="Preview">
+    <span id="mediaLightboxLabel"></span>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

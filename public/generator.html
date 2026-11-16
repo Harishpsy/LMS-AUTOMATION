@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CareersCloud LMS — PDF Generator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css?v=10">
+  <style>
+    .nav-tabs-bar {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 24px;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 12px;
+    }
+    .nav-tab-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: var(--radius-md);
+      font-weight: 600;
+      font-size: 14px;
+      text-decoration: none;
+      color: var(--text-muted);
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      transition: all 0.2s ease;
+    }
+    .nav-tab-link:hover {
+      color: var(--text-main);
+      border-color: var(--accent-blue);
+      transform: translateY(-1px);
+    }
+    .nav-tab-link.active {
+      color: #ffffff;
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-blue-hover));
+      border-color: transparent;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+    }
+    .gen-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 20px;
+    }
+    .control-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      box-shadow: var(--shadow-card);
+    }
+    .section-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .badge-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-content">
+        <div class="brand">
+          <div class="logo-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+            </svg>
+          </div>
+          <div>
+            <h1>CareersCloud LMS</h1>
+            <p class="subtitle">Daily &amp; Monthly Quiz DOCX Generator</p>
+          </div>
+        </div>
+
+        <div class="header-actions">
+          <button id="themeToggleBtn" class="theme-toggle-btn" title="Toggle Light / Dark Mode" aria-label="Toggle Theme">
+            <span id="themeIconSun" class="theme-icon hidden">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="5"></circle>
+                <line x1="12" y1="1" x2="12" y2="3"></line>
+                <line x1="12" y1="21" x2="12" y2="23"></line>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                <line x1="1" y1="12" x2="3" y2="12"></line>
+                <line x1="21" y1="12" x2="23" y2="12"></line>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+              </svg>
+            </span>
+            <span id="themeIconMoon" class="theme-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+              </svg>
+            </span>
+            <span id="themeToggleLabel">Light Mode</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <!-- Navigation Tabs -->
+      <nav class="nav-tabs-bar">
+        <a href="index.html" class="nav-tab-link">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+          <span>LMS Question Uploader</span>
+        </a>
+        <a href="generator.html" class="nav-tab-link active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><circle cx="10" cy="13" r="2"></circle><path d="m20 17-1.09-1.09a2 2 0 0 0-2.82 0L10 22"></path></svg>
+          <span>Daily &amp; Monthly DOCX Generator</span>
+        </a>
+      </nav>
+
+      <div class="gen-grid">
+        <!-- 1. Daily & Monthly Generation Panel -->
+        <div class="control-box">
+          <div class="section-title-wrap">
+            <div class="badge-icon" style="background: linear-gradient(135deg, #2563eb, #3b82f6); color: #fff;">📘</div>
+            <div style="flex: 1;">
+              <h2 style="font-size: 20px; font-weight: 700;">Quiz DOCX Generator</h2>
+              <p style="color: var(--text-muted); font-size: 13px; margin-top: 2px;">
+                Automatically generates formatted Daily &amp; Monthly topic-wise Word (.docx) files in English &amp; Hindi
+              </p>
+            </div>
+            <button id="btnRefreshPdfList" class="btn btn-secondary" title="Refresh files" style="font-size: 12px; padding: 6px 12px;">
+              🔄 Refresh List
+            </button>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 16px;">
+            <!-- Daily Generator Box -->
+            <div style="padding: 16px; background: rgba(37, 99, 235, 0.05); border-radius: var(--radius-md); border: 1px solid rgba(37, 99, 235, 0.2);">
+              <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 6px; color: var(--accent-blue);">
+                1. Generate Daily Quiz DOCX
+              </h3>
+              <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
+                Select a source document from workspace or upload any <code>.docx</code> file from your computer. The generator extracts questions and creates the formatted DOCX in that document's language (English or Hindi).
+              </p>
+
+              <!-- Source Tabs -->
+              <div class="source-tabs" style="margin-bottom: 14px;">
+                <button type="button" id="tabGenFolder" class="source-tab active">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                  Uploaded Documents / Workspace
+                </button>
+                <button type="button" id="tabGenUpload" class="source-tab">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  Upload from Computer
+                </button>
+              </div>
+
+              <!-- Panel 1: Workspace Folder -->
+              <div id="panelGenFolder" class="tab-panel">
+                <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;">
+                  <div class="select-group" style="flex: 2; min-width: 280px;">
+                    <label for="pdfSourceSelect">Source Document:</label>
+                    <select id="pdfSourceSelect" class="styled-select">
+                      <option value="">Loading source documents...</option>
+                    </select>
+                  </div>
+                  <div>
+                    <button id="btnGenerateDailyDoc" class="btn btn-primary" style="height: 42px; font-weight: 600;">
+                      ⚡ Generate Daily Quiz (DOCX)
+                    </button>
+                  </div>
+                  <div>
+                    <button id="btnGenerateModernPdf" class="btn btn-secondary" style="height: 42px; font-weight: 600;" title="Redesigned card layout (PDF)">
+                      ✨ Generate Modern PDF
+                    </button>
+                  </div>
+                  <div>
+                    <button id="btnQuickUpload" type="button" class="btn btn-secondary" style="height: 42px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;" title="Upload a new .docx to Uploaded Documents/Daily folder">
+                      📤 Upload .docx
+                    </button>
+                    <input type="file" id="quickFileInput" accept=".docx" class="hidden-file-input">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Panel 2: Upload from Computer -->
+              <div id="panelGenUpload" class="tab-panel hidden">
+                <div id="genDropZone" class="drop-zone" style="padding: 24px 16px;">
+                  <input type="file" id="genFileUploadInput" accept=".docx" class="hidden-file-input">
+                  <div class="drop-zone-icon" style="width: 44px; height: 44px; margin-bottom: 8px;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="17 8 12 3 7 8"/>
+                      <line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                  </div>
+                  <p class="drop-zone-text" style="font-size: 14px;">Drag &amp; drop your <strong>.docx</strong> file here</p>
+                  <p class="drop-zone-sub" style="margin-bottom: 10px;">or</p>
+                  <button type="button" class="btn btn-secondary" id="btnBrowseGenFile" style="font-size: 13px; padding: 6px 14px;">
+                    Browse File
+                  </button>
+                  <p id="genUploadedFileName" class="uploaded-file-name hidden" style="margin-top: 10px; font-weight: 600; color: var(--accent-blue);"></p>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 12px;">
+                  <button id="btnUploadAndGenerate" class="btn btn-primary" disabled style="font-weight: 600; height: 40px;">
+                    ⚡ Upload &amp; Generate Daily Quiz (DOCX)
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Monthly Generator Box -->
+            <div style="padding: 16px; background: rgba(139, 92, 246, 0.05); border-radius: var(--radius-md); border: 1px solid rgba(139, 92, 246, 0.2);">
+              <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 6px; color: var(--accent-purple);">
+                2. Generate Monthly Topic-Wise Consolidated Quiz
+              </h3>
+              <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
+                Upload or select source files from <code>Monthly PDF/</code> (or consolidate from <code>Daily PDF/</code>), consolidates all questions topic-wise, numbers them 1..N per topic, generates a Table of Contents, and outputs both English &amp; Hindi .docx files.
+              </p>
+
+              <!-- Monthly Source Tabs -->
+              <div class="source-tabs" style="margin-bottom: 14px;">
+                <button type="button" id="tabMonthlyFolder" class="source-tab active">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                  Uploaded Documents / Workspace
+                </button>
+                <button type="button" id="tabMonthlyUpload" class="source-tab">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  Upload Monthly .docx
+                </button>
+              </div>
+
+              <!-- Panel 1: Workspace Folder -->
+              <div id="panelMonthlyFolder" class="tab-panel">
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                  <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;">
+                    <div class="select-group" style="flex: 2; min-width: 260px;">
+                      <label for="monthlySourceSelect">Source / Target:</label>
+                      <select id="monthlySourceSelect" class="styled-select">
+                        <option value="monthly-all">📁 Consolidate all files in Uploaded Documents/Monthly</option>
+                        <option value="daily-all">📁 Consolidate all files in Daily Uploads</option>
+                      </select>
+                    </div>
+                    <div class="input-field" style="flex: 1; min-width: 180px;">
+                      <label for="monthlyLabelInput">Month &amp; Year Label:</label>
+                      <input type="text" id="monthlyLabelInput" value="November 2026" placeholder="e.g. November 2026">
+                    </div>
+                    <div>
+                      <button id="btnGenerateMonthlyDoc" class="btn btn-primary" style="height: 42px; font-weight: 600; background: linear-gradient(135deg, #7c3aed, #a855f7);">
+                        📚 Generate Monthly Topic-Wise (DOCX)
+                      </button>
+                    </div>
+                    <div>
+                      <button id="btnQuickMonthlyUpload" type="button" class="btn btn-secondary" style="height: 42px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;" title="Upload new .docx file(s) to Uploaded Documents/Monthly folder">
+                        📤 Upload Monthly .docx
+                      </button>
+                      <input type="file" id="quickMonthlyFileInput" accept=".docx" multiple class="hidden-file-input">
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Panel 2: Upload from Computer -->
+              <div id="panelMonthlyUpload" class="tab-panel hidden">
+                <div id="monthlyDropZone" class="drop-zone" style="padding: 24px 16px; border-color: rgba(139, 92, 246, 0.4);">
+                  <input type="file" id="monthlyFileUploadInput" accept=".docx" multiple class="hidden-file-input">
+                  <div class="drop-zone-icon" style="width: 44px; height: 44px; margin-bottom: 8px; color: var(--accent-purple);">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="17 8 12 3 7 8"/>
+                      <line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                  </div>
+                  <p class="drop-zone-text" style="font-size: 14px;">Drag &amp; drop your Monthly <strong>.docx</strong> file(s) here</p>
+                  <p class="drop-zone-sub" style="margin-bottom: 10px;">or</p>
+                  <button type="button" class="btn btn-secondary" id="btnBrowseMonthlyFile" style="font-size: 13px; padding: 6px 14px;">
+                    Browse File(s)
+                  </button>
+                  <p id="monthlyUploadedFileName" class="uploaded-file-name hidden" style="margin-top: 10px; font-weight: 600; color: var(--accent-purple);"></p>
+                </div>
+                <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-top: 12px;">
+                  <div class="input-field" style="flex: 1; min-width: 200px; max-width: 300px;">
+                    <label for="monthlyUploadLabelInput" style="font-size: 12px;">Month &amp; Year Label:</label>
+                    <input type="text" id="monthlyUploadLabelInput" value="November 2026" placeholder="e.g. November 2026" style="height: 38px;">
+                  </div>
+                  <button id="btnMonthlyUploadAndGenerate" class="btn btn-primary" disabled style="font-weight: 600; height: 40px; background: linear-gradient(135deg, #7c3aed, #a855f7);">
+                    📚 Upload &amp; Generate Monthly Quiz (DOCX)
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Live Execution Terminal Log -->
+        <div class="terminal-card">
+          <div class="terminal-header">
+            <div class="terminal-dots">
+              <span></span><span></span><span></span>
+            </div>
+            <span class="terminal-title">Real-Time Generation Log</span>
+            <button id="btnClearLog" class="btn-text">Clear</button>
+          </div>
+          <div id="logOutput" class="terminal-body" style="max-height: 200px;">
+            <div class="log-line text-muted">[DOCX Generator ready. Choose a source file or month to start]</div>
+          </div>
+        </div>
+
+        <!-- 3. Generated Documents Gallery / Download List -->
+        <div class="control-box">
+          <div class="section-title-wrap">
+            <div class="badge-icon" style="background: linear-gradient(135deg, #10b981, #059669); color: #fff;">📥</div>
+            <div style="flex: 1;">
+              <h2 style="font-size: 18px; font-weight: 700;">Current Generated Document</h2>
+              <p style="color: var(--text-muted); font-size: 13px; margin-top: 2px;">
+                Download formatted Word (.docx) or native PDF for the currently generated quiz
+              </p>
+            </div>
+          </div>
+
+          <div id="generatedFilesList">
+            <div style="color:var(--text-dim); font-size:13px; padding:12px 0;">Loading files...</div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { initTheme } from './modules/theme.js';
+    import { initPdfGenerator } from './modules/pdfGenUI.js?v=10';
+    import { appendLog, clearLog } from './modules/logger.js';
+
+    document.addEventListener('DOMContentLoaded', () => {
+      initTheme();
+      initPdfGenerator();
+
+      // Listen to SSE stream for live progress
+      const eventSource = new EventSource('/api/upload-stream');
+      eventSource.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (data.type === 'pdf-gen-log') {
+            appendLog(data.message, data.level || 'info');
+          } else if (data.type === 'pdf-gen-complete') {
+            appendLog(`🎉 ${data.mode === 'monthly' ? 'Monthly Compilation' : 'Daily Quiz'} generation complete!`, 'success');
+            data.files?.forEach(f => appendLog(`  📄 Created: ${f.name}`, 'success'));
+            import('./modules/pdfGenUI.js').then(m => {
+              if (m.setCurrentGenerated && data.files) {
+                m.setCurrentGenerated(data.files);
+              }
+              m.loadPdfGenFiles();
+            }).catch(() => {});
+          } else if (data.type === 'pdf-gen-error') {
+            appendLog(`❌ Generation Error: ${data.message}`, 'error');
+          }
+        } catch(err) {}
+      };
+
+      const btnClearLog = document.getElementById('btnClearLog');
+      if (btnClearLog) {
+        btnClearLog.addEventListener('click', clearLog);
+      }
+    });
+  </script>
+</body>
+</html>

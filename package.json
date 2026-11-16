@@ -1,0 +1,25 @@
+{
+  "name": "lms-admin-pannel-quiz-automation",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "login": "node src/interactive-login.js",
+    "parse": "node src/parser.js",
+    "upload": "node src/uploader.js",
+    "start": "node src/server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "adm-zip": "^0.6.1",
+    "docx": "^9.15.3",
+    "dotenv": "^18.0.9",
+    "express": "^5.3.0",
+    "mammoth": "^1.13.0",
+    "multer": "^2.5.0",
+    "playwright": "^1.64.1"
+  }
+}

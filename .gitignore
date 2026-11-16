@@ -1,0 +1,28 @@
+node_modules/
+storageState.json
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
+Thumbs.db
+~$*.docx
+_cleanup_backup/
+
+# generated / temporary
+extracted_assets/
+screenshots/
+sample_extracted.html
+Generated PDFs/
+Uploaded Documents/
+
+# user documents (keep out of git, but keep the TEMPLATES and app assets)
+Quiz Document/
+Daily PDF/
+Monthly PDF/
+Monthly PDF Sample/
+
+# NOTE: the old file ignored every *.png and the whole Templates/ folder, which dropped
+# public/assets/template/*.png, public/logo.png and the DOCX templates from git.
+# Only the images produced while parsing are ignored now:
+**/extracted_assets/
