@@ -95,8 +95,17 @@ function getBannerDataUris() {
   });
 }
 
+function getQrCodeDataUri() {
+  const qrPath = path.join(ROOT_DIR, 'Templates', 'Daily', 'extracted_assets', 'images', 'image4.png');
+  if (fs.existsSync(qrPath)) {
+    return `data:image/png;base64,${fs.readFileSync(qrPath).toString('base64')}`;
+  }
+  return '';
+}
+
 function buildTransparentOverlayHtml({ questions, dateString, isHindi, tableMap }) {
   const banners = getBannerDataUris();
+  const qrUri = getQrCodeDataUri();
   const cleanDate = String(dateString || '').replace(/^DAILY\s+(?:CA\s+)?QUIZ[:\s\-]*/i, '').trim();
   const mainTitleText = isHindi
     ? `करेंट अफेयर्स Q&A PDF – ${esc(cleanDate)}`
@@ -337,21 +346,46 @@ function buildTransparentOverlayHtml({ questions, dateString, isHindi, tableMap 
           }
         }
 
-        // Build Page 3 (Dynamic Table of Contents) and prepend it before quiz pages!
+        // Build Page 3 (Dynamic Table of Contents + Important Notice + Congratulations)
         var tocPage = el('div', 'page'), tocPin = el('div', 'pin');
         var tocPb = el('div', 'pb');
 
-        var tocCardHtml = '<div style="margin: 0; padding: 10px 16px; font-family: Cambria, serif;">';
-        tocCardHtml += '<div style="font: 700 22px Cambria, serif; color: #d92525; text-align: center; margin-bottom: 20px;">' + (${isHindi ? "'विषय-सूची (INDEX)'" : "'INDEX (Table of Contents)'"}) + '</div>';
+        var tocCardHtml = '<div style="font: 700 22pt Cambria, serif; color: #FF0000; text-align: center; margin: 0 0 10px 0; letter-spacing: 0.5px;">AFFAIRSCLOUD TODAY</div>';
+        tocCardHtml += '<div style="font: 600 13pt Calibri, sans-serif; color: #2e75b6; margin: 0 0 8px 0;">Table of Contents</div>';
         tocCardHtml += '<div style="list-style: none; padding: 0; margin: 0;">';
-        tocCardHtml += '<div style="display: flex; align-items: baseline; justify-content: space-between; padding: 5px 0; font-size: 11.5pt; font-family: Cambria, serif; color: #111;"><span style="font-weight:700;">' + ${JSON.stringify(mainTitleText)} + '</span><span style="flex: 1; border-bottom: 1px dotted #888; margin: 0 8px; position: relative; top: -3px;"></span><span style="font-weight: 700; color: #d92525;">4</span></div>';
+        tocCardHtml += '<div style="display: flex; align-items: baseline; justify-content: space-between; padding: 2px 0; font-size: 10.5pt; font-family: Cambria, serif; color: #111;"><span style="font-weight:700;">' + ${JSON.stringify(mainTitleText)} + '</span><span style="flex: 1; border-bottom: 1px dotted #888; margin: 0 8px; position: relative; top: -3px;"></span><span style="font-weight: 700; color: #d92525;">4</span></div>';
 
         for (var sName in sectionPageMap) {
-          tocCardHtml += '<div style="display: flex; align-items: baseline; justify-content: space-between; padding: 5px 0; font-size: 11.5pt; font-family: Cambria, serif; color: #111;"><span>' + sName + '</span><span style="flex: 1; border-bottom: 1px dotted #888; margin: 0 8px; position: relative; top: -3px;"></span><span style="font-weight: 700; color: #d92525;">' + sectionPageMap[sName] + '</span></div>';
+          tocCardHtml += '<div style="display: flex; align-items: baseline; justify-content: space-between; padding: 2px 0; font-size: 10.5pt; font-family: Cambria, serif; color: #111;"><span>' + sName + '</span><span style="flex: 1; border-bottom: 1px dotted #888; margin: 0 8px; position: relative; top: -3px;"></span><span style="font-weight: 700; color: #d92525;">' + sectionPageMap[sName] + '</span></div>';
         }
-        tocCardHtml += '</div></div>';
-        tocPb.innerHTML = tocCardHtml;
+        tocCardHtml += '</div>';
 
+        // Important Notice
+        tocCardHtml += '<div style="margin-top: 24px; font-size: 10pt; line-height: 1.38; font-family: Cambria, serif; color: #111; text-align: justify;">';
+        tocCardHtml += '<div style="margin-bottom: 4px;"><span style="color: #FF0000; font-weight: 700; font-size: 11pt;">Important Notice:</span><span style="font-weight: 700; font-size: 11pt;"> CareersCloud Content Sharing and Legal Compliance</span></div>';
+        tocCardHtml += '<div>We kindly request our aspirants <b>not to share or distribute our content, PDFs, videos, or any other materials under our ownership to individuals or through any social media platforms.</b> Please note that we have implemented a tracking system to monitor such activities. Any violation of this policy may result in the immediate termination of access to our services, and we will not be held responsible for any loss or inconvenience caused due to such actions. Furthermore, we also reserve the right to take strict legal action, including filing complaints under applicable laws, against individuals or entities found violating this policy.</div>';
+        tocCardHtml += '</div>';
+
+        // Congratulations on Your Success!
+        tocCardHtml += '<div style="margin-top: 20px; font-size: 9.5pt; line-height: 1.35; font-family: Cambria, serif; color: #111;">';
+        tocCardHtml += '<div style="font-weight: 700; font-size: 11pt; margin-bottom: 6px;"><span>🎉</span> <span style="color: #00B050;">Congratulations on Your Success!</span></div>';
+        tocCardHtml += '<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;">';
+        tocCardHtml += '<div style="flex: 1;">';
+        tocCardHtml += '<div>If you have successfully cleared the examination, we invite you to submit your details for official recognition by our community. Your achievement represents dedication, discipline, and excellence and it deserves to be celebrated.</div>';
+        tocCardHtml += '<div style="font-weight: 700; margin-top: 6px;">Selected candidates will be:</div>';
+        tocCardHtml += '<ul style="margin: 4px 0 6px 18px; padding: 0;">';
+        tocCardHtml += '<li style="margin-bottom: 2px;">Featured on our Official Achievers List</li>';
+        tocCardHtml += '<li style="margin-bottom: 2px;">Highlighted across our digital platforms</li>';
+        tocCardHtml += '<li style="margin-bottom: 2px;">Recognised as community role models</li>';
+        tocCardHtml += '</ul>';
+        tocCardHtml += '<div style="font-weight: 700; margin-top: 6px;"><span>📱</span> Scan the QR Code to submit your Details or <span>👉</span> Click the below link:</div>';
+        tocCardHtml += '<div style="margin-top: 3px;"><a href="https://forms.gle/xbxExzt1ETcPMfFZ7" style="color: #0563C1; font-weight: 700; text-decoration: underline;">https://forms.gle/xbxExzt1ETcPMfFZ7</a></div>';
+        tocCardHtml += '</div>';
+        tocCardHtml += '<div style="flex-shrink: 0;"><img src="' + ${JSON.stringify(qrUri)} + '" style="width: 110px; height: 110px; display: block;" /></div>';
+        tocCardHtml += '</div>';
+        tocCardHtml += '</div>';
+
+        tocPb.innerHTML = tocCardHtml;
         tocPin.appendChild(tocPb);
         tocPage.appendChild(tocPin);
         out.insertBefore(tocPage, out.firstChild); // TOC becomes page 0 in Playwright!
