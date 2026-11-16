@@ -1,22 +1,29 @@
 /**
  * Modern Daily Q&A PDF Generator
  * --------------------------------
- * Replaces ONLY the question view design inside the official AffairsCloud master template DOCX,
- * preserving 100% of the base document:
- *  - Cover page, Promo page, Table of Contents, and Achievers page (Pages 1-4)
- *  - Exact authentic AffairsCloud page border (CA PDF BG / image1.jpeg)
- *  - Native headers, footers, page numbering, copyright lines
- *  - Aspirant Queries and Back Cover
- *  - 100% selectable vector text and working clickable hyperlinks across all pages
- *  - Modern styled question view (styled question numbers, statement callout boxes,
- *    styled option keys, green answer pill, orange explanation box, sleek dividers).
- *
- * Converts natively to PDF via Microsoft Word COM engine (convertDocxToPdf).
+ * Produces the Modern Daily Q&A PDF combining:
+ *  1. 100% Authentic Master Document Vector Rendering:
+ *     - Header (AffairsCloud vector logo, Cambria "Daily Q&A PDF", YouTube logo, dashed line)
+ *       comes directly from the authentic Microsoft Word template on EVERY page.
+ *     - Border (authentic AffairsCloud gradient border / image1.jpeg with blue corners,
+ *       orange/green sides, red flourishes) comes from Microsoft Word on EVERY page.
+ *     - Footer (Cambria copyright, dashed line, and sequential page numbers) comes from Word.
+ *     - Pages 1 & 2: 100% authentic Word Cover and Promo pages with selectable vector text & links.
+ *     - Page 3: Dynamic Table of Contents (INDEX) with live section page mapping.
+ *     - Closing Pages: Aspirant Queries (with dynamically matched page number) and Back Cover.
+ *  2. Finalized Modern Question Card Design (Playwright Vector Overlay):
+ *     - Orange rounded square number badges (1, 2, 6, ...)
+ *     - Blue callout statement containers
+ *     - Rounded option pills with circular key badges; correct answer highlighted in soft green
+ *     - Pill-shaped green answer badge (✓ Answer: ...)
+ *     - Soft peach explanation container with white sub-callout boxes having orange left borders
+ *     - Floating side promotional banners after Q1, Q3, Q5.
  */
 
 const fs = require('fs');
 const path = require('path');
-const AdmZip = require('adm-zip');
+const { PDFDocument, rgb, StandardFonts } = require('pdf-lib');
+const { chromium } = require('playwright');
 const {
   parseDailySource,
   standardizeQuestions,
@@ -24,443 +31,362 @@ const {
   getDateFolder,
   OUTPUT_DIR
 } = require('./quizParser');
-const {
-  escapeXml,
-  renderRunsWithBold,
-  extractBannerParagraphsFromTemplate
-} = require('./docxXmlHelpers');
 const { convertDocxToPdf } = require('./docxToPdf');
 
 const ROOT_DIR = path.join(__dirname, '..');
-const TEMPLATES_DAILY = path.join(ROOT_DIR, 'Templates', 'Daily', 'Current Affairs Q&A PDF November 7,8&9 2026 by Affairscloud.docx');
-const DEFAULT_DAILY_TEMPLATE_PATH = fs.existsSync(TEMPLATES_DAILY)
-  ? TEMPLATES_DAILY
-  : path.join(ROOT_DIR, 'Daily PDF', 'Current Affairs Q&A PDF November 7,8&9 2026 by Affairscloud.docx');
+const BASE_TEMPLATE = path.join(
+  ROOT_DIR,
+  'Templates',
+  'Daily',
+  'Current Affairs Q&A PDF November 7,8&9 2026 by Affairscloud.docx'
+);
+const MASTER_BASE_PDF = path.join(
+  ROOT_DIR,
+  'Templates',
+  'Daily',
+  'master_template_base.pdf'
+);
 
-class HyperlinkRegistry {
-  constructor(initialMaxId = 500) {
-    this.currentId = initialMaxId;
-    this.links = [];
-  }
-  initFromRels(relsXml) {
-    if (!relsXml) return;
-    const ids = [...relsXml.matchAll(/Id="rId(\d+)"/g)].map(m => parseInt(m[1], 10));
-    if (ids.length > 0) {
-      this.currentId = Math.max(this.currentId, ...ids);
+const esc = (s) => String(s == null ? '' : s)
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+function inline(text) {
+  if (!text) return '';
+  let t = String(text);
+  if ((t.match(/\*\*/g) || []).length % 2) t += '**';
+  const linkRe = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s)<>"'\]]+)/g;
+  const renderChunk = (chunk) => {
+    let out = '', last = 0, m;
+    linkRe.lastIndex = 0;
+    while ((m = linkRe.exec(chunk)) !== null) {
+      out += esc(chunk.slice(last, m.index));
+      const label = m[1] || m[3], url = m[2] || m[3];
+      out += `<a href="${esc(url)}">${esc(label)}</a>`;
+      last = linkRe.lastIndex;
     }
-  }
-  add(url) {
-    if (!url) return '';
-    const cleanUrl = url.trim();
-    const existing = this.links.find(l => l.url === cleanUrl);
-    if (existing) return existing.rId;
-    this.currentId++;
-    const rId = `rId${this.currentId}`;
-    this.links.push({ rId, url: cleanUrl });
-    return rId;
-  }
+    return out + esc(chunk.slice(last));
+  };
+  return t.split('**').map((part, i) => (part ? (i % 2 ? `<b>${renderChunk(part)}</b>` : renderChunk(part)) : '')).join('');
 }
 
-// ─── CANONICAL TOPIC ORDER ────────────────────────────────────────────────────
-const CANONICAL_SECTION_ORDER = [
-  'NATIONAL AFFAIRS',
-  'INTERNATIONAL AFFAIRS',
-  'BANKING & FINANCE',
-  'ECONOMY & BUSINESS',
-  'AWARDS & RECOGNITIONS',
-  'APPOINTMENTS & RESIGNATIONS',
-  'ACQUISITIONS & MERGERS',
-  'SCIENCE & TECHNOLOGY',
-  'ENVIRONMENT',
-  'SPORTS',
-  'OBITUARY',
-  'BOOKS & AUTHORS',
-  'IMPORTANT DAYS',
-  'STATE NEWS',
-  'STATIC'
-];
-
-function normalizeSection(rawSection) {
-  if (!rawSection) return 'NATIONAL AFFAIRS';
-  const clean = String(rawSection).replace(/&amp;/gi, '&').replace(/\*\*/g, '');
-  const upper = clean.trim().toUpperCase();
-
-  if (upper.includes('STATIC') || upper === 'GK' || upper.endsWith(' GK')) {
-    return 'STATIC';
-  }
-  if (upper.includes('INTERNATIONAL') || upper.includes('SUMMIT') || upper.includes('MOU')) {
-    return 'INTERNATIONAL AFFAIRS';
-  }
-  if (upper.includes('NATIONAL') || upper.includes('GOVT') || upper.includes('SCHEME') || upper.includes('VISIT')) {
-    return 'NATIONAL AFFAIRS';
-  }
-  if (upper.includes('BANKING') || upper.includes('FINANCE')) {
-    return 'BANKING & FINANCE';
-  }
-  if (upper.includes('ECONOMY') || upper.includes('BUSINESS')) {
-    return 'ECONOMY & BUSINESS';
-  }
-  if (upper.includes('AWARD') || upper.includes('RECOGNITION')) {
-    return 'AWARDS & RECOGNITIONS';
-  }
-  if (upper.includes('APPOINTMENT') || upper.includes('RESIGNATION')) {
-    return 'APPOINTMENTS & RESIGNATIONS';
-  }
-  if (upper.includes('ACQUISITION') || upper.includes('MERGER')) {
-    return 'ACQUISITIONS & MERGERS';
-  }
-  if (upper.includes('SCIENCE') || upper.includes('TECHNOLOGY') || upper.includes('DEFENCE')) {
-    return 'SCIENCE & TECHNOLOGY';
-  }
-  if (upper.includes('ENVIRONMENT')) {
-    return 'ENVIRONMENT';
-  }
-  if (upper.includes('SPORT')) {
-    return 'SPORTS';
-  }
-  if (upper.includes('OBITUARY') || upper.includes('PASSED AWAY') || upper.includes('DEMISE')) {
-    return 'OBITUARY';
-  }
-  if (upper.includes('BOOK') || upper.includes('AUTHOR')) {
-    return 'BOOKS & AUTHORS';
-  }
-  if (upper.includes('DAY') || upper.includes('WEEK') || upper.includes('YEAR')) {
-    return 'IMPORTANT DAYS';
-  }
-  if (upper.includes('STATE')) {
-    return 'STATE NEWS';
-  }
-
-  return upper;
+function tableXmlToHtml(xml) {
+  const rows = xml.match(/<w:tr[\s>][\s\S]*?<\/w:tr>/g) || [];
+  const html = rows.map((tr) => {
+    const cells = tr.match(/<w:tc>[\s\S]*?<\/w:tc>/g) || [];
+    return '<tr>' + cells.map((tc) => {
+      const paras = (tc.match(/<w:p[\s>][\s\S]*?<\/w:p>/g) || [])
+        .map((p) => (p.match(/<w:t[^>]*>([^<]*)<\/w:t>/g) || [])
+          .map((t) => t.replace(/<[^>]+>/g, '')).join(''))
+        .filter((s) => s.trim());
+      return `<td>${paras.map((p) => esc(p.replace(/&amp;/g, '&'))).join('<br>')}</td>`;
+    }).join('') + '</tr>';
+  }).join('');
+  return `<div class="tbl-wrap"><table class="tbl">${html}</table></div>`;
 }
 
-function getSectionOrderIndex(sectionTitle) {
-  const norm = normalizeSection(sectionTitle);
-  const idx = CANONICAL_SECTION_ORDER.indexOf(norm);
-  return idx !== -1 ? idx : 999;
+function getBannerDataUris() {
+  const bannerDir = path.join(ROOT_DIR, 'Templates', 'Daily', 'extracted_assets', 'images');
+  return ['image5.jpg', 'image6.jpeg', 'image7.jpeg'].map(f => {
+    const p = path.join(bannerDir, f);
+    if (!fs.existsSync(p)) return '';
+    const ext = path.extname(f).slice(1).toLowerCase();
+    const mime = ext === 'png' ? 'image/png' : 'image/jpeg';
+    return `data:${mime};base64,${fs.readFileSync(p).toString('base64')}`;
+  });
 }
 
-// ─── MODERN OPENXML GENERATORS ────────────────────────────────────────────────
+function buildTransparentOverlayHtml({ questions, dateString, isHindi, tableMap }) {
+  const banners = getBannerDataUris();
+  const cleanDate = String(dateString || '').replace(/^DAILY\s+(?:CA\s+)?QUIZ[:\s\-]*/i, '').trim();
+  const mainTitleText = isHindi
+    ? `करेंट अफेयर्स Q&A PDF – ${esc(cleanDate)}`
+    : `Current Affairs Q&A PDF – ${esc(cleanDate)}`;
 
-function buildModernSectionHeaderXml(title) {
-  return `<w:p><w:pPr><w:pStyle w:val="Heading2"/><w:keepNext/><w:spacing w:before="380" w:after="160" w:line="276" w:lineRule="auto"/><w:jc w:val="center"/><w:pBdr><w:bottom w:val="single" w:sz="12" w:space="8" w:color="D92525"/></w:pBdr><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:sz w:val="28"/><w:szCs w:val="28"/><w:color w:val="D92525"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:sz w:val="28"/><w:szCs w:val="28"/><w:color w:val="D92525"/></w:rPr><w:t>${escapeXml(title)}</w:t></w:r></w:p>`;
-}
-
-function buildModernQuestionXml(num, text, hyperlinkRegistry) {
-  const content = renderRunsWithBold(text, true, hyperlinkRegistry);
-  return `<w:p><w:pPr><w:keepNext/><w:keepLines/><w:spacing w:before="120" w:after="40" w:line="276" w:lineRule="auto"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:color w:val="0D47A1"/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr><w:t xml:space="preserve">${num}.  </w:t></w:r>${content}</w:p>`;
-}
-
-function buildModernStatementXml(statement, tableMap, hyperlinkRegistry) {
-  if (!statement) return '';
-  const trimmed = statement.trim();
-  if (trimmed.startsWith('__TABLE_PLACEHOLDER_') && tableMap && tableMap[trimmed]) {
-    return tableMap[trimmed];
-  }
-  const runs = renderRunsWithBold(statement, true, hyperlinkRegistry);
-  return `<w:p><w:pPr><w:keepNext/><w:keepLines/><w:pBdr><w:left w:val="single" w:sz="20" w:space="10" w:color="1D3F8F"/></w:pBdr><w:shd w:val="clear" w:color="auto" w:fill="F4F7FB"/><w:ind w:left="160" w:right="120"/><w:spacing w:before="30" w:after="30" w:line="260" w:lineRule="auto"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr></w:pPr>${runs}</w:p>`;
-}
-
-function buildModernOptionXml(option, keepNext = false) {
-  const pPrKeep = keepNext ? '<w:keepNext/><w:keepLines/>' : '<w:keepLines/>';
-  const m = String(option).match(/^\s*(\d)\s*\)\s*(.*)$/s);
-  const key = m ? m[1] + ') ' : '';
-  const text = m ? m[2] : option;
-
-  const keyRun = key ? `<w:r><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:color w:val="1565C0"/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr><w:t xml:space="preserve">${escapeXml(key)}</w:t></w:r>` : '';
-  const textRun = `<w:r><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr><w:t xml:space="preserve">${escapeXml(text)}</w:t></w:r>`;
-
-  return `<w:p><w:pPr>${pPrKeep}<w:ind w:left="180"/><w:spacing w:before="20" w:after="20" w:line="276" w:lineRule="auto"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr></w:pPr>${keyRun}${textRun}</w:p>`;
-}
-
-function buildModernAnswerXml(answer, isHindi = false) {
-  const prefix = isHindi ? '✓ सही उत्तर: ' : '✓ Answer: ';
-  return `<w:p><w:pPr><w:keepNext/><w:keepLines/><w:pBdr><w:left w:val="single" w:sz="24" w:space="10" w:color="16A34A"/><w:top w:val="single" w:sz="4" w:space="4" w:color="BBF7D0"/><w:bottom w:val="single" w:sz="4" w:space="4" w:color="BBF7D0"/><w:right w:val="single" w:sz="4" w:space="4" w:color="BBF7D0"/></w:pBdr><w:shd w:val="clear" w:color="auto" w:fill="F0FDF4"/><w:ind w:left="140" w:right="120"/><w:spacing w:before="70" w:after="50" w:line="260" w:lineRule="auto"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:color w:val="15803D"/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr><w:t xml:space="preserve">${prefix}</w:t></w:r><w:r><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:color w:val="166534"/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr><w:t xml:space="preserve">${escapeXml(answer)}</w:t></w:r></w:p>`;
-}
-
-function buildModernExplanationXml(explanation, isHindi = false, tableMap = {}, hyperlinkRegistry = null) {
-  if (!explanation || !explanation.trim()) return '';
-
-  const label = isHindi ? '💡 स्पष्टीकरण' : '💡 EXPLANATION';
-  let xml = `<w:p><w:pPr><w:keepNext/><w:pBdr><w:left w:val="single" w:sz="24" w:space="10" w:color="EA580C"/></w:pBdr><w:shd w:val="clear" w:color="auto" w:fill="FFF7ED"/><w:ind w:left="140" w:right="120"/><w:spacing w:before="60" w:after="20" w:line="260" w:lineRule="auto"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:color w:val="C2410C"/><w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:color w:val="C2410C"/><w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr><w:t xml:space="preserve">${label}</w:t></w:r></w:p>`;
-
-  const lines = explanation.split('\n').map(l => l.trim()).filter(Boolean);
-  while (lines.length > 0 && (
-    /^(?:\*\*)?(?:Explanation|स्पष्टीकरण|विवरण|हल)\s*[:.]?\s*(?:\*\*)?\s*[:.]?\s*$/i.test(lines[0]) ||
-    /^(?:\*\*)?\s*[:.\-–—]\s*(?:\*\*)?$/.test(lines[0])
-  )) {
-    lines.shift();
-  }
-  if (lines.length > 0 && /^(?:\*\*)?(?:Explanation|स्पष्टीकरण|विवरण|हल)\s*[:.]?\s*(?:\*\*)?\s*[:.]?\s*/i.test(lines[0])) {
-    const stripped = lines[0].replace(/^(?:\*\*)?(?:Explanation|स्पष्टीकरण|विवरण|हल)\s*[:.]?\s*(?:\*\*)?\s*[:.]?\s*/i, '').trim();
-    if (stripped) lines[0] = stripped;
-    else lines.shift();
-  }
-  while (lines.length > 0 && /^(?:\*\*)?\s*[:.\-–—]\s*(?:\*\*)?$/.test(lines[0])) {
-    lines.shift();
-  }
-  if (lines.length > 0 && /^(?:\*\*)?\s*[:.\-–—]\s*(?:\*\*)?\s*(.+)$/.test(lines[0])) {
-    lines[0] = lines[0].replace(/^(?:\*\*)?\s*[:.\-–—]\s*(?:\*\*)?\s*/, '').trim();
-  }
-
-  for (const line of lines) {
-    if (line.startsWith('__TABLE_PLACEHOLDER_') && tableMap && tableMap[line]) {
-      xml += tableMap[line];
-      continue;
-    }
-
-    const isBullet = /^(?:●|•|▪|▶|∙|-(?!\*))\s*/.test(line);
-    const isAboutHeading = /^(?:\*\*)?(?:About\s+[^:\n]+|[^:\n]+\s+के\s+बारे\s+में)\s*:(?:\*\*)?$/i.test(line);
-
-    if (isAboutHeading) {
-      const cleanHeading = line.replace(/\*\*/g, '').trim();
-      xml += `<w:p><w:pPr><w:keepNext/><w:spacing w:before="60" w:after="20" w:line="250" w:lineRule="auto"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:u w:val="single"/><w:color w:val="0D47A1"/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:u w:val="single"/><w:color w:val="0D47A1"/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr><w:t xml:space="preserve">${escapeXml(cleanHeading)}</w:t></w:r></w:p>`;
-      continue;
-    }
-
-    if (isBullet) {
-      const cleanContent = line.replace(/^(?:●|•|▪|▶|∙|-(?!\*))\s*/, '').trim();
-      const pPr = `<w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="2"/></w:numPr><w:spacing w:before="20" w:after="30" w:line="276" w:lineRule="auto"/><w:ind w:left="720" w:hanging="360"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr></w:pPr>`;
-      const prefixMatch = cleanContent.match(/^(\*{0,2}[^:\n]{1,70}:(?:\s*\*{2})?\s*)(.*)$/);
-
-      if (prefixMatch) {
-        const prefix = prefixMatch[1].replace(/\*\*/g, '').trim();
-        const rest = prefixMatch[2].trim();
-        const prefixRun = `<w:r><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr><w:t xml:space="preserve">${escapeXml(prefix)} </w:t></w:r>`;
-        const restRuns = renderRunsWithBold(rest, false, hyperlinkRegistry);
-        xml += `<w:p>${pPr}${prefixRun}${restRuns}</w:p>`;
-      } else {
-        const contentRuns = renderRunsWithBold(cleanContent, false, hyperlinkRegistry);
-        xml += `<w:p>${pPr}${contentRuns}</w:p>`;
-      }
-    } else {
-      const isKeyValue = /^(\*{0,2}[A-Za-z\u0900-\u097F\s()]{1,40}\s*[-–—:]\*{0,2}\s*)(.+)$/.test(line.replace(/\*\*/g, ''));
-      const spacingBefore = isKeyValue ? "0" : "20";
-      const spacingAfter = isKeyValue ? "20" : "40";
-      const lineRuleVal = isKeyValue ? "240" : "276";
-
-      const runs = renderRunsWithBold(line, false, hyperlinkRegistry);
-      xml += `<w:p><w:pPr><w:spacing w:before="${spacingBefore}" w:after="${spacingAfter}" w:line="${lineRuleVal}" w:lineRule="auto"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr></w:pPr>${runs}</w:p>`;
-    }
-  }
-
-  // Divider line after question
-  xml += '<w:p><w:pPr><w:pBdr><w:bottom w:val="single" w:sz="6" w:space="8" w:color="E2E8F0"/></w:pBdr><w:spacing w:before="60" w:after="80" w:line="200" w:lineRule="auto"/><w:rPr><w:sz w:val="12"/></w:rPr></w:pPr></w:p>';
-
-  return xml;
-}
-
-function buildModernQuestionsFragmentXml(questions, isTopicWise, isHindi, tableMap, sideBanners, hyperlinkRegistry) {
+  // Group questions by section
   const sections = {};
   questions.forEach(q => {
-    const rawSec = q.section || q.topic || 'NATIONAL AFFAIRS';
-    const sec = normalizeSection(rawSec);
-    if (!sections[sec]) sections[sec] = [];
-    sections[sec].push(q);
+    const s = q.section || q.topic || (isHindi ? 'राष्ट्रीय मामले' : 'NATIONAL AFFAIRS');
+    if (!sections[s]) sections[s] = [];
+    sections[s].push(q);
   });
+  const sectionKeys = Object.keys(sections);
 
-  const sortedSectionTitles = Object.keys(sections).sort((a, b) => {
-    return getSectionOrderIndex(a) - getSectionOrderIndex(b);
-  });
-
-  let xml = '';
+  // 1. Build Quiz Questions HTML
+  let srcHtml = `<div class="ttl">${mainTitleText}</div>`;
   let globalNum = 1;
 
-  for (const sectionTitle of sortedSectionTitles) {
-    const qs = sections[sectionTitle];
-    if (!qs || qs.length === 0) continue;
+  for (const sTitle of sectionKeys) {
+    const sAnchor = `sec-${globalNum}`;
+    srcHtml += `<div class="sect" id="${sAnchor}">${esc(sTitle)}</div>`;
+    for (const q of sections[sTitle]) {
+      const qNum = globalNum++;
+      srcHtml += `<div class="q">`;
+      srcHtml += `<div class="qh"><div class="num">${qNum}</div><div class="qt">${inline(q.questionText)}</div></div>`;
 
-    xml += buildModernSectionHeaderXml(sectionTitle);
-    xml += '<w:p><w:pPr><w:keepNext/><w:spacing w:before="0" w:after="0" w:line="220" w:lineRule="auto"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr></w:p>';
-
-    qs.forEach((q, qIndex) => {
-      const qNum = isTopicWise ? (qs.indexOf(q) + 1) : globalNum++;
-      xml += buildModernQuestionXml(qNum, q.questionText, hyperlinkRegistry);
-
+      // Statements / Tables
       if (q.statements && q.statements.length > 0) {
         for (const st of q.statements) {
-          xml += buildModernStatementXml(st, tableMap, hyperlinkRegistry);
+          const trimmed = st.trim();
+          if (trimmed.startsWith('__TABLE_PLACEHOLDER_') && tableMap && tableMap[trimmed]) {
+            srcHtml += tableXmlToHtml(tableMap[trimmed]);
+          } else {
+            srcHtml += `<div class="stmt">${inline(st)}</div>`;
+          }
         }
       }
 
+      // Options (Pills with circular key, correct answer in green)
       if (q.options && q.options.length > 0) {
-        q.options.forEach((opt, optIdx) => {
-          const keepNext = optIdx < q.options.length - 1;
-          xml += buildModernOptionXml(opt, keepNext);
+        srcHtml += `<ul class="opts">`;
+        const ansMatch = String(q.answer || '').match(/(?:Option\s*|[^\d]*)?([1-5])\s*\)?/i);
+        const ansDigit = ansMatch ? ansMatch[1] : null;
+
+        q.options.forEach(opt => {
+          const m = String(opt).match(/^\s*([1-5])\s*[\)\.]\s*(.*)$/s);
+          const digit = m ? m[1] : '';
+          const optText = m ? m[2] : opt;
+          const isOk = ansDigit && digit === ansDigit;
+          srcHtml += `<li class="${isOk ? 'ok' : ''}"><i>${digit}</i><span>${inline(optText)}</span></li>`;
         });
+        srcHtml += `</ul>`;
       }
 
+      // Solution & Explanation
+      srcHtml += `<div class="sol">`;
       if (q.answer) {
-        xml += buildModernAnswerXml(q.answer, isHindi);
+        const ansPrefix = isHindi ? 'उत्तर: ' : 'Answer: ';
+        srcHtml += `<div class="ans"><span class="chk">✓</span><span>${ansPrefix}${inline(q.answer)}</span></div>`;
       }
 
       if (q.explanation) {
-        xml += buildModernExplanationXml(q.explanation, isHindi, tableMap, hyperlinkRegistry);
-      }
+        srcHtml += `<div class="exp">`;
+        const expLabel = isHindi ? 'स्पष्टीकरण' : 'EXPLANATION';
+        srcHtml += `<h4>${expLabel}</h4>`;
 
-      const currentQNum = globalNum - 1;
-      if (sideBanners && sideBanners.length > 0) {
-        if (currentQNum === 1 && sideBanners[0]) {
-          xml += sideBanners[0];
-        } else if (currentQNum === 3 && sideBanners[1]) {
-          xml += sideBanners[1];
-        } else if (currentQNum === 5 && sideBanners[2]) {
-          xml += sideBanners[2];
+        // Floating side banner for Q1, Q3, Q5
+        if (qNum === 1 && banners[0]) {
+          srcHtml += `<img src="${banners[0]}" style="float:right; width:155px; margin:0 0 8px 12px; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,0.12);" />`;
+        } else if (qNum === 3 && banners[1]) {
+          srcHtml += `<img src="${banners[1]}" style="float:right; width:155px; margin:0 0 8px 12px; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,0.12);" />`;
+        } else if (qNum === 5 && banners[2]) {
+          srcHtml += `<img src="${banners[2]}" style="float:right; width:155px; margin:0 0 8px 12px; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,0.12);" />`;
         }
+
+        const lines = q.explanation.split('\n').map(l => l.trim()).filter(Boolean);
+        while (lines.length > 0 && /^(?:\*\*)?(?:Explanation|स्पष्टीकरण|विवरण|हल)\s*[:.]?\s*(?:\*\*)?\s*[:.]?\s*/i.test(lines[0])) {
+          lines.shift();
+        }
+
+        let inUl = false;
+        for (const line of lines) {
+          if (line.startsWith('__TABLE_PLACEHOLDER_') && tableMap && tableMap[line]) {
+            if (inUl) { srcHtml += `</ul>`; inUl = false; }
+            srcHtml += tableXmlToHtml(tableMap[line]);
+            continue;
+          }
+
+          const isBullet = /^(?:●|•|▪|▶|∙|-(?!\*))\s*/.test(line);
+          const subMatch = line.match(/^(\*{0,2}[^:\n]{2,45}:\*{0,2}\s*)(.*)$/);
+
+          if (isBullet || subMatch) {
+            if (!inUl) { srcHtml += `<ul>`; inUl = true; }
+            let content = line;
+            if (isBullet) {
+              content = line.replace(/^(?:●|•|▪|▶|∙|-(?!\*))\s*/, '').trim();
+            }
+            if (subMatch && !isBullet) {
+              const title = subMatch[1].replace(/\*\*/g, '').trim();
+              const body = subMatch[2].trim();
+              srcHtml += `<li><b>${esc(title)}</b> ${inline(body)}</li>`;
+            } else {
+              srcHtml += `<li>${inline(content)}</li>`;
+            }
+          } else {
+            if (inUl) { srcHtml += `</ul>`; inUl = false; }
+            srcHtml += `<p>${inline(line)}</p>`;
+          }
+        }
+        if (inUl) { srcHtml += `</ul>`; inUl = false; }
+        srcHtml += `<div style="clear:both;"></div></div>`;
       }
-    });
+      srcHtml += `</div></div>`;
+    }
   }
 
-  return xml;
+  // Load CSS and customize for transparent overlay:
+  let css = fs.readFileSync(path.join(ROOT_DIR, 'src', 'modernPdf.css'), 'utf8');
+  css = css.replace(/background:\s*#fff\s+url\([^)]+\)[^;]*;/g, 'background: transparent;');
+  css = css.replace(/body\s*\{[^}]*\}/g, 'body { margin: 0; padding: 0; background: transparent; }');
+  css = css.replace(/\.page\s*\{[^}]*\}/g, '.page { width: 210mm; height: 297mm; margin: 0 auto; background: transparent; position: relative; overflow: hidden; break-after: page; page-break-after: always; }');
+  css = css.replace(/\.pin\s*\{[^}]*\}/g, '.pin { height: 100%; background: transparent; display: flex; flex-direction: column; }');
+  css = css.replace(/\.hd\s*\{[^}]*\}/g, '.hd { display: none !important; }');
+  css = css.replace(/\.ft\s*\{[^}]*\}/g, '.ft { display: none !important; }');
+  // CRITICAL: Padding-top is 124px so headings and questions start cleanly below Word's header line
+  css = css.replace(/\.pb\s*\{[^}]*\}/g, '.pb { flex: 1; min-height: 0; overflow: hidden; padding: 124px 36px 52px 36px; }');
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Modern Daily Quiz</title>
+  <style>
+    ${css}
+    .ttl { margin: 4px 0 10px; text-align: center; color: var(--red); font: 700 20px Cambria, serif; }
+    .sect { margin: 8px 0 8px; text-align: center; color: var(--red); font: 700 15px Cambria, serif; }
+  </style>
+</head>
+<body style="background: transparent;">
+  <div id="src" style="display:none;">${srcHtml}</div>
+  <div id="hd" style="display:none;"><div></div></div>
+  <div id="pages"></div>
+
+  <script>
+    (function() {
+      var START = 4; // Quiz starts on Page 4
+      var sectionPageMap = {};
+
+      function atomsOf(src) {
+        var atoms = [], qid = 0;
+        Array.prototype.forEach.call(src.children, function (el) {
+          var c = el.classList;
+          if (c.contains('sect')) { atoms.push({ t: 'head', h: el.outerHTML, sect: el.textContent.trim(), keep: true }); return; }
+          if (c.contains('ttl')) { atoms.push({ t: 'head', h: el.outerHTML, keep: true }); return; }
+          if (!c.contains('q')) { atoms.push({ t: 'free', h: el.outerHTML }); return; }
+          qid++;
+          Array.prototype.forEach.call(el.children, function (ch) {
+            var cc = ch.classList;
+            if (cc.contains('qh')) atoms.push({ t: 'qh', h: ch.outerHTML, q: qid, keep: true });
+            else if (cc.contains('stmt') || cc.contains('tbl-wrap')) atoms.push({ t: 'raw', h: ch.outerHTML, q: qid });
+            else if (cc.contains('opts')) Array.prototype.forEach.call(ch.children, function (li) { atoms.push({ t: 'opt', h: li.outerHTML, q: qid }); });
+            else if (cc.contains('sol')) Array.prototype.forEach.call(ch.children, function (s) {
+              if (s.classList.contains('ans')) atoms.push({ t: 'ans', h: s.outerHTML, q: qid });
+              else if (s.classList.contains('exp')) Array.prototype.forEach.call(s.children, function (e) {
+                if (e.tagName === 'H4') atoms.push({ t: 'exph', h: e.outerHTML, q: qid, keep: true });
+                else if (e.tagName === 'IMG') atoms[atoms.length - 1].h += e.outerHTML;
+                else if (e.tagName === 'UL') Array.prototype.forEach.call(e.children, function (li) { atoms.push({ t: 'li', h: li.outerHTML, q: qid }); });
+                else atoms.push({ t: 'p', h: e.outerHTML, q: qid });
+              });
+            });
+          });
+        });
+        return atoms;
+      }
+
+      function el(tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html) e.innerHTML = html; return e; }
+      function frag(html) { var d = document.createElement('div'); d.innerHTML = html; return d.firstElementChild; }
+
+      function paginate() {
+        var out = document.getElementById('pages'); out.innerHTML = '';
+        var atoms = atomsOf(document.getElementById('src'));
+        var n = START, pb, S, started = {};
+
+        function newPage() {
+          var page = el('div', 'page'), pin = el('div', 'pin');
+          pb = el('div', 'pb');
+          pin.appendChild(pb); page.appendChild(pin); out.appendChild(page);
+          n++; S = { card: null, opts: null, sol: null, exp: null, expUl: null, q: 0 };
+        }
+        function overflow() { return pb.scrollHeight > pb.clientHeight + 1; }
+
+        function place(a) {
+          var snap = {}, created = [], k;
+          for (k in S) snap[k] = S[k];
+          function add(parent, node) { parent.appendChild(node); created.push(node); return node; }
+          if (a.t === 'head' || a.t === 'free') {
+            add(pb, frag(a.h));
+            S.card = null;
+            if (a.sect && !sectionPageMap[a.sect]) {
+              sectionPageMap[a.sect] = (n - 1);
+            }
+          } else {
+            if (!S.card || S.q !== a.q) {
+              var card = el('div', 'q' + (started[a.q] ? ' cont' : '')); card.setAttribute('data-q', a.q);
+              add(pb, card); S = { card: card, opts: null, sol: null, exp: null, expUl: null, q: a.q }; started[a.q] = true;
+            }
+            var C = S.card;
+            if (a.t === 'qh' || a.t === 'raw') add(C, frag(a.h));
+            else if (a.t === 'opt') { if (!S.opts) S.opts = add(C, el('ul', 'opts')); add(S.opts, frag(a.h)); }
+            else {
+              if (!S.sol) S.sol = add(C, el('div', 'sol'));
+              if (a.t === 'ans') add(S.sol, frag(a.h));
+              else {
+                if (!S.exp) { S.exp = add(S.sol, el('div', 'exp')); S.expUl = null; }
+                if (a.t === 'exph') { var d = el('div'); d.innerHTML = a.h; while (d.firstChild) add(S.exp, d.firstChild); }
+                else if (a.t === 'li') { if (!S.expUl) S.expUl = add(S.exp, el('ul')); add(S.expUl, frag(a.h)); }
+                else { add(S.exp, frag(a.h)); S.expUl = null; }
+              }
+            }
+          }
+          return function undo() {
+            for (var i = created.length - 1; i >= 0; i--) if (created[i].parentNode) created[i].parentNode.removeChild(created[i]);
+            S = snap;
+          };
+        }
+
+        newPage();
+        var i = 0;
+        while (i < atoms.length) {
+          var grp = [atoms[i]];
+          while (atoms[i + grp.length - 1].keep && i + grp.length < atoms.length) grp.push(atoms[i + grp.length]);
+          i += grp.length;
+          var undos = grp.map(place);
+          if (overflow()) {
+            for (var u = undos.length - 1; u >= 0; u--) undos[u]();
+            if (pb.children.length) newPage();
+            grp.forEach(place);
+          }
+        }
+
+        // Build Page 3 (Dynamic Table of Contents) and prepend it before quiz pages!
+        var tocPage = el('div', 'page'), tocPin = el('div', 'pin');
+        var tocPb = el('div', 'pb');
+
+        var tocCardHtml = '<div style="margin: 0; padding: 10px 16px; font-family: Cambria, serif;">';
+        tocCardHtml += '<div style="font: 700 22px Cambria, serif; color: #d92525; text-align: center; margin-bottom: 20px;">' + (${isHindi ? "'विषय-सूची (INDEX)'" : "'INDEX (Table of Contents)'"}) + '</div>';
+        tocCardHtml += '<div style="list-style: none; padding: 0; margin: 0;">';
+        tocCardHtml += '<div style="display: flex; align-items: baseline; justify-content: space-between; padding: 5px 0; font-size: 11.5pt; font-family: Cambria, serif; color: #111;"><span style="font-weight:700;">' + ${JSON.stringify(mainTitleText)} + '</span><span style="flex: 1; border-bottom: 1px dotted #888; margin: 0 8px; position: relative; top: -3px;"></span><span style="font-weight: 700; color: #d92525;">4</span></div>';
+
+        for (var sName in sectionPageMap) {
+          tocCardHtml += '<div style="display: flex; align-items: baseline; justify-content: space-between; padding: 5px 0; font-size: 11.5pt; font-family: Cambria, serif; color: #111;"><span>' + sName + '</span><span style="flex: 1; border-bottom: 1px dotted #888; margin: 0 8px; position: relative; top: -3px;"></span><span style="font-weight: 700; color: #d92525;">' + sectionPageMap[sName] + '</span></div>';
+        }
+        tocCardHtml += '</div></div>';
+        tocPb.innerHTML = tocCardHtml;
+
+        tocPin.appendChild(tocPb);
+        tocPage.appendChild(tocPin);
+        out.insertBefore(tocPage, out.firstChild); // TOC becomes page 0 in Playwright!
+        window.__sectionPageMap = sectionPageMap;
+      }
+
+      window.runPagination = function() {
+        paginate();
+        window.__paginated = true;
+      };
+    })();
+  </script>
+</body>
+</html>`;
 }
 
 /**
- * Inject questions with modern card layout into the official template DOCX.
- * Preserves 100% of cover pages, promo, TOC, achievers, borders, headers, footers,
- * and aspirant queries.
+ * Ensures the authentic master Word template PDF is generated and cached.
  */
-function injectModernQuestionsIntoTemplate({
-  templatePath = DEFAULT_DAILY_TEMPLATE_PATH,
-  questions,
-  dateString,
-  outputPath,
-  isTopicWise = false,
-  isHindi = false,
-  tableMap = {}
-}) {
-  if (!fs.existsSync(templatePath)) {
-    throw new Error(`Template DOCX not found at: ${templatePath}`);
-  }
-
-  const zip = new AdmZip(templatePath);
-  let xml = zip.readAsText('word/document.xml');
-
-  // Replace Title in both the TOC and Heading 1 Banner
-  if (dateString) {
-    const cleanDate = dateString.replace(/^DAILY\s+(?:CA\s+)?QUIZ[:\s\-]*/i, '').trim();
-    const newTitle = isHindi
-      ? `करेंट अफेयर्स Q&amp;A PDF – ${escapeXml(cleanDate)}`
-      : `Current Affairs Q&amp;A PDF – ${escapeXml(cleanDate)}`;
-
-    xml = xml.replace(
-      /<w:instrText xml:space="preserve">\s*TOC[^\<]*<\/w:instrText>/,
-      '<w:instrText xml:space="preserve"> TOC \\t "Heading 2,1" \\h \\z \\u </w:instrText>'
-    );
-
-    const tocHeadingText = isHindi ? 'विषय-सूची (INDEX)' : 'INDEX (Table of Contents)';
-    xml = xml.replace(
-      /(<w:pStyle w:val="TOCHeading"[\s\S]*?<w:t>)[^<]*(<\/w:t>)/,
-      `$1${tocHeadingText}$2`
-    );
-
-    xml = xml.replace(/(<w:pStyle w:val="TOC1"[\s\S]*?<w:t>)[^<]*(<\/w:t>)/g, (match, p1, p2) => {
-      return p1 + newTitle + p2;
-    });
-
-    const heading1Regex = /(<w:p[^>]*><w:pPr><w:pStyle w:val="Heading1"[\s\S]*?<\/w:pPr>)([\s\S]*?)(<\/w:p>)/;
-    xml = xml.replace(heading1Regex, (match, pPr, body, close) => {
-      const bStart = (body.match(/<w:bookmarkStart[^>]*\/>/g) || []).join('');
-      const bEnd = (body.match(/<w:bookmarkEnd[^>]*\/>/g) || []).join('');
-      const newRun = `<w:r w:rsidRPr="001A3FD1"><w:rPr><w:rFonts w:ascii="Cambria" w:hAnsi="Cambria"/><w:b/><w:bCs/><w:color w:val="FF0000"/><w:sz w:val="40"/><w:szCs w:val="40"/></w:rPr><w:lastRenderedPageBreak/><w:t>${newTitle}</w:t></w:r>`;
-      return pPr + bStart + newRun + bEnd + close;
-    });
-  }
-
-  // Find question boundaries
-  const pRegex = /<w:p(?:\s+[^>]*)?>[\s\S]*?<\/w:p>/g;
-  let match;
-  const paragraphs = [];
-  while ((match = pRegex.exec(xml)) !== null) {
-    const pXml = match[0];
-    const textMatches = pXml.match(/<w:t(?:\s+[^>]*)?>([^<]*)<\/w:t>/g) || [];
-    const text = textMatches.map(t => t.replace(/<[^>]+>/g, '')).join('').trim();
-    paragraphs.push({
-      index: paragraphs.length,
-      start: match.index,
-      end: match.index + pXml.length,
-      text,
-      xml: pXml
-    });
-  }
-
-  let startP = paragraphs.find((p, i) => i >= 35 && /^(NATIONAL AFFAIRS|1\.\s)/i.test(p.text));
-  if (!startP) startP = paragraphs.find(p => /^1\.\s/i.test(p.text));
-  let endP = paragraphs.find(p => /Aspirant Queries/i.test(p.text));
-
-  if (!startP) {
-    throw new Error('Could not locate start of questions region in template DOCX');
-  }
-
-  const startOffset = startP.start;
-  const endOffset = endP ? endP.start : paragraphs[paragraphs.length - 1].start;
-
-  const startIdx = paragraphs.indexOf(startP);
-  const endIdx = endP ? paragraphs.indexOf(endP) : paragraphs.length - 1;
-  const allBanners = extractBannerParagraphsFromTemplate(xml, startIdx, endIdx);
-  const sideBanners = allBanners.filter(b => !b.includes('wrapTopAndBottom') && !b.includes('align="center"'));
-  const bottomBanner = allBanners.find(b => b.includes('wrapTopAndBottom') || b.includes('align="center"')) || '';
-
-  const hyperlinkRegistry = new HyperlinkRegistry();
-  const relsXml = zip.readAsText('word/_rels/document.xml.rels') || '';
-  hyperlinkRegistry.initFromRels(relsXml);
-
-  const pageBreakBeforeAspirantXml = '<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/></w:pPr><w:r><w:br w:type="page"/></w:r></w:p>';
-  const newQuestionsXml = buildModernQuestionsFragmentXml(questions, isTopicWise, isHindi, tableMap, sideBanners, hyperlinkRegistry) + (bottomBanner ? bottomBanner : '') + pageBreakBeforeAspirantXml;
-
-  const newDocXml = xml.slice(0, startOffset) + newQuestionsXml + xml.slice(endOffset);
-  zip.updateFile('word/document.xml', Buffer.from(newDocXml, 'utf-8'));
-
-  // Patch numbering.xml
-  try {
-    let numXml = zip.readAsText('word/numbering.xml');
-    if (numXml) {
-      const targetBulletsRegex = /(<w:lvl\s+w:ilvl="0">[\s\S]*?<w:numFmt\s+w:val="bullet"\/>)[\s\S]*?(<\/w:lvl>)/g;
-      numXml = numXml.replace(
-        targetBulletsRegex,
-        `$1<w:lvlText w:val="&#xF0B7;"/><w:lvlJc w:val="left"/><w:pPr><w:tabs><w:tab w:val="num" w:pos="720"/></w:tabs><w:ind w:left="720" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Symbol" w:hAnsi="Symbol" w:hint="default"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr>$2`
-      );
-      zip.updateFile('word/numbering.xml', Buffer.from(numXml, 'utf-8'));
-    }
-  } catch (e) {
-    console.warn('[modernPdfGenerator] Could not patch numbering.xml:', e.message);
-  }
-
-  // Patch styles.xml
-  try {
-    let stylesXml = zip.readAsText('word/styles.xml');
-    if (stylesXml) {
-      stylesXml = stylesXml.replace(/<w:tab\s+w:val="left"\s+w:pos="1560"\/>/g, '');
-      zip.updateFile('word/styles.xml', Buffer.from(stylesXml, 'utf-8'));
-    }
-  } catch (e) {
-    console.warn('[modernPdfGenerator] Could not patch styles.xml:', e.message);
-  }
-
-  // Patch rels for hyperlinks
-  if (hyperlinkRegistry && hyperlinkRegistry.links.length > 0) {
-    try {
-      let rXml = zip.readAsText('word/_rels/document.xml.rels');
-      if (rXml) {
-        let relEntries = '';
-        for (const l of hyperlinkRegistry.links) {
-          const safeUrl = escapeXml(l.url);
-          relEntries += `<Relationship Id="${l.rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${safeUrl}" TargetMode="External"/>`;
-        }
-        rXml = rXml.replace('</Relationships>', `${relEntries}</Relationships>`);
-        zip.updateFile('word/_rels/document.xml.rels', Buffer.from(rXml, 'utf-8'));
-      }
-    } catch (e) {
-      console.warn('[modernPdfGenerator] Could not patch rels:', e.message);
+async function ensureMasterTemplatePdf(log) {
+  if (fs.existsSync(MASTER_BASE_PDF)) {
+    const docxStat = fs.statSync(BASE_TEMPLATE);
+    const pdfStat = fs.statSync(MASTER_BASE_PDF);
+    if (pdfStat.mtimeMs >= docxStat.mtimeMs && pdfStat.size > 100000) {
+      return MASTER_BASE_PDF;
     }
   }
-
-  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-  zip.writeZip(outputPath);
-  return outputPath;
+  log({ type: 'info', message: 'Converting authentic master Word template to PDF...' });
+  fs.mkdirSync(path.dirname(MASTER_BASE_PDF), { recursive: true });
+  await convertDocxToPdf(BASE_TEMPLATE, MASTER_BASE_PDF);
+  return MASTER_BASE_PDF;
 }
 
 /**
- * Main entry point: Generates Modern Daily Quiz (DOCX and PDF) from any uploaded source docx file.
+ * Main entry point: Generates Modern Daily Quiz PDF from source DOCX.
  */
 async function generateModernDailyPdf(sourceFilePath, onLog) {
   const log = onLog || console.log;
@@ -474,36 +400,144 @@ async function generateModernDailyPdf(sourceFilePath, onLog) {
 
   log({ type: 'info', message: `✅ Parsed ${questions.length} questions (${langLabel}) for ${raw.dateString}` });
 
+  // 1. Build Runner HTML for transparent cards
+  const runnerHtml = buildTransparentOverlayHtml({
+    questions,
+    dateString: raw.dateString,
+    isHindi,
+    tableMap: raw.tableMap || {}
+  });
+
+  const runnerHtmlPath = path.join(ROOT_DIR, 'tools', `temp_runner_${Date.now()}.html`);
+  fs.writeFileSync(runnerHtmlPath, runnerHtml, 'utf8');
+
+  // 2. Run Playwright to paginate and print transparent PDF
+  log({ type: 'info', message: '🎨 Paginating modern question cards with Playwright engine...' });
+  const browser = await chromium.launch({ headless: true });
+  const page = await browser.newPage({ viewport: { width: 1200, height: 1600 } });
+  await page.setContent(runnerHtml);
+  await page.evaluate(() => window.runPagination());
+  await page.waitForFunction('window.__paginated === true', null, { timeout: 35000 });
+
+  const tempPwPdfPath = path.join(ROOT_DIR, 'tools', `temp_pw_${Date.now()}.pdf`);
+  await page.pdf({
+    path: tempPwPdfPath,
+    format: 'A4',
+    printBackground: false, // Transparent!
+    margin: { top: 0, right: 0, bottom: 0, left: 0 }
+  });
+  await browser.close();
+
+  try { fs.unlinkSync(runnerHtmlPath); } catch {}
+
+  // 3. Ensure authentic base template PDF
+  const masterBasePdf = await ensureMasterTemplatePdf(log);
+
+  // 4. Merge Cover + Promo + Dynamic TOC + Question Pages + Closing Pages with pdf-lib
+  log({ type: 'info', message: '🔗 Merging authentic Word borders/headers with Modern Question Cards...' });
+  const templatePdfDoc = await PDFDocument.load(fs.readFileSync(masterBasePdf));
+  const pwPdfDoc = await PDFDocument.load(fs.readFileSync(tempPwPdfPath));
+  const finalDoc = await PDFDocument.create();
+
+  // Pages 1 & 2: Cover & Promo from authentic template (100% authentic vector)
+  const [coverPage, promoPage] = await finalDoc.copyPages(templatePdfDoc, [0, 1]);
+  finalDoc.addPage(coverPage);
+  finalDoc.addPage(promoPage);
+
+  // Page 3: Dynamic Table of Contents (overlaid onto authentic template Page 3)
+  const [tocBasePage] = await finalDoc.copyPages(templatePdfDoc, [2]);
+  tocBasePage.drawRectangle({
+    x: 26,
+    y: 34,
+    width: 543,
+    height: 736,
+    color: rgb(1, 1, 1),
+  });
+  const [embeddedToc] = await finalDoc.embedPdf(pwPdfDoc, [0]);
+  tocBasePage.drawPage(embeddedToc, {
+    x: 0,
+    y: 0,
+    width: tocBasePage.getWidth(),
+    height: tocBasePage.getHeight()
+  });
+  finalDoc.addPage(tocBasePage);
+
+  // Question pages: Overlay transparent Playwright question cards onto authentic Word pages
+  const pwCount = pwPdfDoc.getPageCount();
+
+  for (let i = 1; i < pwCount; i++) {
+    // Pick an authentic background page from master template (index 3)
+    const [bgPage] = await finalDoc.copyPages(templatePdfDoc, [3]);
+    
+    // Clear old text in the center body up to y=770 (right below the dashed line at 771)
+    bgPage.drawRectangle({
+      x: 26,
+      y: 34,
+      width: 543,
+      height: 736,
+      color: rgb(1, 1, 1),
+    });
+
+    // Embed transparent Playwright question cards for this page
+    const [embeddedPwPage] = await finalDoc.embedPdf(pwPdfDoc, [i]);
+    
+    // Draw transparent cards onto authentic background page
+    bgPage.drawPage(embeddedPwPage, {
+      x: 0,
+      y: 0,
+      width: bgPage.getWidth(),
+      height: bgPage.getHeight()
+    });
+    finalDoc.addPage(bgPage);
+  }
+
+  // Closing Pages: Aspirant Queries & Back Cover from authentic template
+  const templateTotal = templatePdfDoc.getPageCount();
+  const [aspPage, backCoverPage] = await finalDoc.copyPages(templatePdfDoc, [templateTotal - 2, templateTotal - 1]);
+  finalDoc.addPage(aspPage);
+  finalDoc.addPage(backCoverPage);
+
+  // 5. Dynamically patch page number on the Aspirant Queries page
+  const finalTotal = finalDoc.getPageCount();
+  const aspirantPage = finalDoc.getPage(finalTotal - 2);
+  const helveticaFont = await finalDoc.embedFont(StandardFonts.Helvetica);
+
+  aspirantPage.drawRectangle({
+    x: 515,
+    y: 12,
+    width: 50,
+    height: 18,
+    color: rgb(1, 1, 1),
+  });
+
+  const aspPageNumStr = String(finalTotal - 1);
+  aspirantPage.drawText(aspPageNumStr, {
+    x: 532,
+    y: 18,
+    size: 9.5,
+    font: helveticaFont,
+    color: rgb(0.2, 0.2, 0.2),
+  });
+
+  // 6. Save final PDF
   const dateTag = String(raw.dateString).replace(/[,&\s]+/g, '_').replace(/_+/g, '_');
   const dateFolder = getDateFolder(raw.dateString);
   const dailyDir = path.join(OUTPUT_DIR, 'Daily', dateFolder);
   fs.mkdirSync(dailyDir, { recursive: true });
 
-  const docxFilename = `Daily_Quiz_${dateTag}_${langLabel}_Modern.docx`;
-  const docxPath = path.join(dailyDir, docxFilename);
-  const pdfPath = docxPath.replace(/\.docx$/i, '.pdf');
+  const pdfFilename = `Daily_Quiz_${dateTag}_${langLabel}_Modern.pdf`;
+  const finalPdfPath = path.join(dailyDir, pdfFilename);
 
-  log({ type: 'info', message: `🎨 Injecting modern question view into base template (preserving cover, TOC, border)...` });
-  injectModernQuestionsIntoTemplate({
-    templatePath: DEFAULT_DAILY_TEMPLATE_PATH,
-    questions,
-    dateString: raw.dateString,
-    outputPath: docxPath,
-    isTopicWise: false,
-    isHindi,
-    tableMap: raw.tableMap || {}
-  });
+  const finalPdfBytes = await finalDoc.save();
+  fs.writeFileSync(finalPdfPath, finalPdfBytes);
+  log({ type: 'success', message: `✅ Modern PDF created: ${pdfFilename} (${(finalPdfBytes.length / 1024 / 1024).toFixed(2)} MB, ${finalTotal} pages)` });
 
-  log({ type: 'info', message: `📄 Converting Modern DOCX to native PDF with Word engine...` });
-  await convertDocxToPdf(docxPath, pdfPath);
-  log({ type: 'success', message: `✅ Modern PDF created: ${path.basename(pdfPath)}` });
+  try { fs.unlinkSync(tempPwPdfPath); } catch {}
 
-  return pdfPath;
+  return finalPdfPath;
 }
 
 module.exports = {
   generateModernDailyPdf,
-  injectModernQuestionsIntoTemplate,
-  buildModernQuestionsFragmentXml,
-  DEFAULT_DAILY_TEMPLATE_PATH
+  DEFAULT_DAILY_TEMPLATE_PATH: BASE_TEMPLATE
 };
