@@ -250,8 +250,8 @@ function buildTransparentOverlayHtml({ questions, dateString, isHindi, tableMap 
   <style>
     ${css}
     a { color: #0563C1; text-decoration: underline; }
-    .ttl { margin: 4px 0 10px; text-align: center; color: var(--red); font: 700 20px Cambria, serif; }
-    .sect { margin: 8px 0 8px; text-align: center; color: var(--red); font: 700 15px Cambria, serif; }
+    .ttl { margin: 4px 0 10px; text-align: center; color: var(--red); font: 700 22px Cambria, serif; }
+    .sect { margin: 12px 0 8px; text-align: center; color: var(--red); font: 700 20px Cambria, serif; letter-spacing: 0.5px; }
   </style>
 </head>
 <body style="background: transparent;">
@@ -363,10 +363,10 @@ function buildTransparentOverlayHtml({ questions, dateString, isHindi, tableMap 
         var tocCardHtml = '<div style="font: 700 22pt Cambria, serif; color: #FF0000; text-align: center; margin: 0 0 10px 0; letter-spacing: 0.5px;">AFFAIRSCLOUD TODAY</div>';
         tocCardHtml += '<div style="font: 600 13pt Calibri, sans-serif; color: #2e75b6; margin: 0 0 8px 0;">Table of Contents</div>';
         tocCardHtml += '<div style="list-style: none; padding: 0; margin: 0;">';
-        tocCardHtml += '<div class="toc-row" data-target-page="4" style="display: flex; align-items: baseline; justify-content: space-between; padding: 2px 0; font-size: 10.5pt; font-family: Cambria, serif; color: #111; cursor: pointer;"><span style="font-weight:700;">' + ${JSON.stringify(mainTitleText)} + '</span><span style="flex: 1; border-bottom: 1px dotted #888; margin: 0 8px; position: relative; top: -3px;"></span><span style="font-weight: 700; color: #d92525;">4</span></div>';
+        tocCardHtml += '<div class="toc-row" data-target-page="4" style="display: flex; align-items: baseline; justify-content: space-between; padding: 2px 0; font-size: 11pt; font-family: Cambria, serif; color: #111; cursor: pointer;"><span style="font-weight:700;">' + ${JSON.stringify(mainTitleText)} + '</span><span style="flex: 1; border-bottom: 1px dotted #888; margin: 0 8px; position: relative; top: -3px;"></span><span style="font-weight: 700; color: #d92525;">4</span></div>';
 
         for (var sName in sectionPageMap) {
-          tocCardHtml += '<div class="toc-row" data-target-page="' + sectionPageMap[sName] + '" style="display: flex; align-items: baseline; justify-content: space-between; padding: 2px 0; font-size: 10.5pt; font-family: Cambria, serif; color: #111; cursor: pointer;"><span>' + sName + '</span><span style="flex: 1; border-bottom: 1px dotted #888; margin: 0 8px; position: relative; top: -3px;"></span><span style="font-weight: 700; color: #d92525;">' + sectionPageMap[sName] + '</span></div>';
+          tocCardHtml += '<div class="toc-row" data-target-page="' + sectionPageMap[sName] + '" style="display: flex; align-items: baseline; justify-content: space-between; padding: 2px 0; font-size: 11pt; font-family: Cambria, serif; color: #111; cursor: pointer;"><span>' + sName + '</span><span style="flex: 1; border-bottom: 1px dotted #888; margin: 0 8px; position: relative; top: -3px;"></span><span style="font-weight: 700; color: #d92525;">' + sectionPageMap[sName] + '</span></div>';
         }
         tocCardHtml += '</div>';
 

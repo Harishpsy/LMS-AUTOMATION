@@ -124,10 +124,10 @@ body {
 }
 
 .sect {
-  margin: 10px 0 6px;
+  margin: 12px 0 8px;
   text-align: center;
   color: var(--red);
-  font: 700 15px Cambria, serif;
+  font: 700 20px Cambria, serif;
   letter-spacing: 0.5px;
 }
 
