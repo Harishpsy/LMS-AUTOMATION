@@ -11,7 +11,7 @@ const path = require('path');
  */
 function buildAnswerXml(answer, isHindi = false) {
   const prefix = isHindi ? 'उत्तर – ' : 'Answer- ';
-  return `<w:p><w:pPr><w:keepNext/><w:keepLines/><w:spacing w:before="80" w:after="40" w:line="276" w:lineRule="auto"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr><w:t xml:space="preserve">${prefix}</w:t></w:r><w:r><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr><w:t xml:space="preserve">${escapeXml(answer)}</w:t></w:r></w:p>`;
+  return `<w:p><w:pPr><w:keepLines/><w:spacing w:before="80" w:after="40" w:line="276" w:lineRule="auto"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr><w:t xml:space="preserve">${prefix}</w:t></w:r><w:r><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr><w:t xml:space="preserve">${escapeXml(answer)}</w:t></w:r></w:p>`;
 }
 
 /**
@@ -22,7 +22,6 @@ function buildExplanationXml(explanation, isHindi = false, tableMap = {}, hyperl
   if (!explanation || !explanation.trim()) return '';
 
   const label = isHindi ? 'स्पष्टीकरण:' : 'Explanation:';
-  let xml = `<w:p><w:pPr><w:keepNext/><w:spacing w:before="60" w:after="30" w:line="276" w:lineRule="auto"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr><w:t xml:space="preserve">${label} </w:t></w:r></w:p>`;
 
   const lines = explanation.split('\n').map(l => l.trim()).filter(Boolean);
   // Strip any redundant leading "Explanation:" / "स्पष्टीकरण:" line or lone punctuation line so it never duplicates
@@ -48,6 +47,23 @@ function buildExplanationXml(explanation, isHindi = false, tableMap = {}, hyperl
   if (lines.length > 0 && /^(?:\*\*)?\s*[:.\-–—]\s*(?:\*\*)?\s*(.+)$/.test(lines[0])) {
     lines[0] = lines[0].replace(/^(?:\*\*)?\s*[:.\-–—]\s*(?:\*\*)?\s*/, '').trim();
   }
+
+  // Check if first content line is a regular paragraph
+  const firstLineIsNormal = lines.length > 0 &&
+    !lines[0].startsWith('__TABLE_PLACEHOLDER_') &&
+    !/^(?:●|•|▪|▶|∙|-(?!\*))\s*/.test(lines[0]) &&
+    !/^(?:\*\*)?(?:About\s+[^:\n]+|[^:\n]+\s+के\s+बारे\s+में)\s*:(?:\*\*)?$/i.test(lines[0]);
+
+  let xml = '';
+  let attachLabelToFirst = false;
+
+  if (firstLineIsNormal) {
+    attachLabelToFirst = true;
+  } else {
+    // If first item is a bullet or table, output Explanation: as its own paragraph with keepNext
+    xml += `<w:p><w:pPr><w:keepNext/><w:spacing w:before="60" w:after="30" w:line="276" w:lineRule="auto"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr><w:t xml:space="preserve">${label} </w:t></w:r></w:p>`;
+  }
+
   for (const line of lines) {
     // Check if line is an embedded table placeholder
     if (line.startsWith('__TABLE_PLACEHOLDER_') && tableMap && tableMap[line]) {
@@ -97,7 +113,13 @@ function buildExplanationXml(explanation, isHindi = false, tableMap = {}, hyperl
 
       // Normal paragraph
       const runs = renderRunsWithBold(line, false, hyperlinkRegistry);
-      xml += `<w:p><w:pPr><w:spacing w:before="${spacingBefore}" w:after="${spacingAfter}" w:line="${lineRuleVal}" w:lineRule="auto"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr></w:pPr>${runs}</w:p>`;
+      if (attachLabelToFirst) {
+        const labelRun = `<w:r><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr><w:t xml:space="preserve">${label}</w:t><w:br/></w:r>`;
+        xml += `<w:p><w:pPr><w:spacing w:before="60" w:after="${spacingAfter}" w:line="${lineRuleVal}" w:lineRule="auto"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr></w:pPr>${labelRun}${runs}</w:p>`;
+        attachLabelToFirst = false;
+      } else {
+        xml += `<w:p><w:pPr><w:spacing w:before="${spacingBefore}" w:after="${spacingAfter}" w:line="${lineRuleVal}" w:lineRule="auto"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr></w:pPr>${runs}</w:p>`;
+      }
     }
   }
 
@@ -114,30 +136,32 @@ function buildOptionXml(option, keepNext = false) {
 
 /**
  * Build OpenXML for a Question paragraph (Bold Cambria 11.5pt)
+ * spaceBefore (twips) = gap above the question. The daily injector uses it instead of blank spacer paragraphs.
  */
-function buildQuestionXml(num, text, hyperlinkRegistry = null) {
+function buildQuestionXml(num, text, hyperlinkRegistry = null, spaceBefore = 40) {
   const content = renderRunsWithBold(text, true, hyperlinkRegistry);
-  return `<w:p><w:pPr><w:keepNext/><w:keepLines/><w:spacing w:before="40" w:after="40" w:line="276" w:lineRule="auto"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr><w:t xml:space="preserve">${num}.  </w:t></w:r>${content}</w:p>`;
+  return `<w:p><w:pPr><w:keepNext/><w:keepLines/><w:spacing w:before="${spaceBefore}" w:after="40" w:line="276" w:lineRule="auto"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr><w:t xml:space="preserve">${num}.  </w:t></w:r>${content}</w:p>`;
 }
 
 /**
  * Build OpenXML for a Section Header (Red, bold, centered Cambria 14pt, Heading 2 for TOC indexing)
  */
-function buildSectionHeaderXml(title) {
-  return `<w:p><w:pPr><w:pStyle w:val="Heading2"/><w:keepNext/><w:spacing w:before="360" w:after="160" w:line="276" w:lineRule="auto"/><w:jc w:val="center"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:sz w:val="28"/><w:szCs w:val="28"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:color w:val="FF0000"/><w:sz w:val="28"/><w:szCs w:val="28"/></w:rPr><w:t>${escapeXml(title)}</w:t></w:r></w:p>`;
+function buildSectionHeaderXml(title, spaceBefore = 360, spaceAfter = 160) {
+  return `<w:p><w:pPr><w:pStyle w:val="Heading2"/><w:keepNext/><w:spacing w:before="${spaceBefore}" w:after="${spaceAfter}" w:line="276" w:lineRule="auto"/><w:jc w:val="center"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:sz w:val="28"/><w:szCs w:val="28"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:color w:val="FF0000"/><w:sz w:val="28"/><w:szCs w:val="28"/></w:rPr><w:t>${escapeXml(title)}</w:t></w:r></w:p>`;
 }
 
 /**
  * Build OpenXML for a Statement paragraph (A, B, C...) or embedded table
  */
-function buildStatementXml(statement, tableMap = {}, hyperlinkRegistry = null) {
+function buildStatementXml(statement, tableMap = {}, hyperlinkRegistry = null, keepNext = false) {
   if (!statement) return '';
   const trimmed = statement.trim();
   if (trimmed.startsWith('__TABLE_PLACEHOLDER_') && tableMap && tableMap[trimmed]) {
     return tableMap[trimmed];
   }
   const runs = renderRunsWithBold(statement, true, hyperlinkRegistry);
-  return `<w:p><w:pPr><w:keepNext/><w:keepLines/><w:spacing w:before="30" w:after="30" w:line="276" w:lineRule="auto"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr></w:pPr>${runs}</w:p>`;
+  const pPrKeep = keepNext ? '<w:keepNext/><w:keepLines/>' : '<w:keepLines/>';
+  return `<w:p><w:pPr>${pPrKeep}<w:spacing w:before="30" w:after="30" w:line="276" w:lineRule="auto"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr></w:pPr>${runs}</w:p>`;
 }
 
 function escapeXml(str) {

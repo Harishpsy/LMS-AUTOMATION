@@ -243,8 +243,6 @@ function buildQuestionsFragmentXml(questions, isTopicWise = true, isHindi = fals
     if (!qs || qs.length === 0) continue;
 
     xml += buildSectionHeaderXml(sectionTitle);
-    // Explicit blank line space below the topic header before the first question starts
-    xml += '<w:p><w:pPr><w:keepNext/><w:spacing w:before="0" w:after="0" w:line="220" w:lineRule="auto"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr></w:p>';
 
     qs.forEach((q, qIndex) => {
       // Clean single blank line separator between consecutive questions within a section

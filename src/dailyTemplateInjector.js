@@ -43,6 +43,14 @@ class HyperlinkRegistry {
 }
 
 
+// ─── SPACING (twips, 20 = 1pt) ───────────────────────────────────────────────────
+// Gaps are real paragraph spacing, NOT empty spacer paragraphs. Empty paragraphs get stranded at
+// the top/bottom of a page, can't be suppressed by Word and made the gaps uneven; paragraph spacing
+// is dropped by Word at the top of a page and stays identical everywhere else.
+const SECTION_SPACE_BEFORE = 360;   // above a topic header (NATIONAL AFFAIRS ...)
+const SECTION_SPACE_AFTER  = 280;   // between topic header and its first question
+const QUESTION_GAP         = 260;   // between one question block and the next
+
 // ─── CANONICAL TOPIC ORDER ────────────────────────────────────────────────────
 const CANONICAL_SECTION_ORDER = [
   'NATIONAL AFFAIRS',
@@ -167,29 +175,24 @@ function buildQuestionsFragmentXml(questions, isTopicWise = false, isHindi = fal
     const qs = sections[sectionTitle];
     if (!qs || qs.length === 0) continue;
 
-    xml += buildSectionHeaderXml(sectionTitle);
-    // Explicit blank line space below the topic header before the first question starts
-    xml += '<w:p><w:pPr><w:keepNext/><w:spacing w:before="0" w:after="0" w:line="220" w:lineRule="auto"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr></w:p>';
+    xml += buildSectionHeaderXml(sectionTitle, SECTION_SPACE_BEFORE, SECTION_SPACE_AFTER);
 
     qs.forEach((q, qIndex) => {
-      // Clean single blank line separator between consecutive questions within a section
-      if (qIndex > 0) {
-        xml += '<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="220" w:lineRule="auto"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr></w:p>';
-      }
-
       const qNum = isTopicWise ? (qs.indexOf(q) + 1) : globalNum++;
-      xml += buildQuestionXml(qNum, q.questionText, hyperlinkRegistry);
+      // First question sits right under its topic header (header's own spacing-after); the rest get the standard gap
+      xml += buildQuestionXml(qNum, q.questionText, hyperlinkRegistry, qIndex === 0 ? 0 : QUESTION_GAP);
 
       if (q.statements && q.statements.length > 0) {
         for (const st of q.statements) {
-          xml += buildStatementXml(st, tableMap, hyperlinkRegistry);
+          // Continuous flow: statements break naturally without premature blank spaces
+          xml += buildStatementXml(st, tableMap, hyperlinkRegistry, false);
         }
       }
 
       if (q.options && q.options.length > 0) {
-        q.options.forEach((opt, optIdx) => {
-          const keepNext = optIdx < q.options.length - 1;
-          xml += buildOptionXml(opt, keepNext);
+        q.options.forEach((opt) => {
+          // Continuous flow: options break naturally without premature blank spaces
+          xml += buildOptionXml(opt, false);
         });
       }
 
@@ -301,6 +304,36 @@ function injectQuestionsIntoTemplate({
       const newRun = `<w:r w:rsidRPr="001A3FD1"><w:rPr><w:rFonts w:ascii="Cambria" w:hAnsi="Cambria"/><w:b/><w:bCs/><w:color w:val="FF0000"/><w:sz w:val="40"/><w:szCs w:val="40"/></w:rPr><w:lastRenderedPageBreak/><w:t>${newTitle}</w:t></w:r>`;
       return pPr + bStart + newRun + bEnd + close;
     });
+
+    // D2. The template keeps an empty paragraph under the Heading 1 title. It is not part of the
+    //     questions region, so it survived and added a big dead gap between the title and the first
+    //     topic header. Remove empty paragraphs directly after the title (stops at the first real one).
+    {
+      const h1Pos = xml.search(/<w:pStyle w:val="Heading1"/);
+      if (h1Pos !== -1) {
+        let cursor = xml.indexOf('</w:p>', h1Pos) + '</w:p>'.length;
+        const emptyP = /^<w:p(?:\s[^>]*)?>(?:(?!<w:t[ >]|<w:drawing|<w:pict|<w:br|<w:fld|<w:sectPr|<w:hyperlink|<w:bookmarkStart)[\s\S])*?<\/w:p>/;
+        let guard = 0;
+        while (guard++ < 5) {
+          const m2 = emptyP.exec(xml.slice(cursor));
+          if (!m2) break;
+          xml = xml.slice(0, cursor) + xml.slice(cursor + m2[0].length);
+        }
+      }
+    }
+
+    // E. Remove redundant empty paragraphs between TOC and Congratulations on Page 3
+    // so that TOC, Important Notice, and Congratulations fit neatly on Page 3,
+    // allowing Page 4 to start cleanly with Title and Question 1 with zero wasted blank space!
+    const tocIdx = xml.indexOf('Table of Contents');
+    const congrIdx = xml.indexOf('Congratulations on Your Success!');
+    if (tocIdx !== -1 && congrIdx !== -1) {
+      const sectionBefore = xml.slice(0, tocIdx);
+      let middle = xml.slice(tocIdx, congrIdx);
+      const sectionAfter = xml.slice(congrIdx);
+      middle = middle.replace(/<w:p[ >](?:(?!<w:t|<w:drawing|<w:fldSimple|<w:fldChar).)*?<\/w:p>/g, '');
+      xml = sectionBefore + middle + sectionAfter;
+    }
   }
 
   // 3. Re-index paragraphs to find question boundaries accurately
@@ -349,8 +382,8 @@ function injectQuestionsIntoTemplate({
   const relsXml = zip.readAsText('word/_rels/document.xml.rels') || '';
   hyperlinkRegistry.initFromRels(relsXml);
 
-  const pageBreakBeforeAspirantXml = '<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/></w:pPr><w:r><w:br w:type="page"/></w:r></w:p>';
-  const newQuestionsXml = buildQuestionsFragmentXml(questions, isTopicWise, isHindi, tableMap, sideBanners, hyperlinkRegistry) + (bottomBanner ? bottomBanner : '') + pageBreakBeforeAspirantXml;
+  const separatorBeforeAspirantXml = '<w:p><w:pPr><w:spacing w:before="360" w:after="160" w:line="276" w:lineRule="auto"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr></w:pPr></w:p>';
+  const newQuestionsXml = buildQuestionsFragmentXml(questions, isTopicWise, isHindi, tableMap, sideBanners, hyperlinkRegistry) + (bottomBanner ? bottomBanner : '') + separatorBeforeAspirantXml;
 
   // 7. Replace ONLY the questions portion between startOffset and endOffset!
   const newDocXml = xml.slice(0, startOffset) + newQuestionsXml + xml.slice(endOffset);

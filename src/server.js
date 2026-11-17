@@ -11,6 +11,7 @@ const { generateMonthlyQuiz } = require('./monthlyPdfGenerator');
 const { generateModernDailyPdf } = require('./modernPdfGenerator');
 const { listSourceFiles, listGeneratedFiles, OUTPUT_DIR } = require('./quizParser');
 const { convertDocxToPdf } = require('./docxToPdf');
+const { testPdfLayout } = require('./automatedLayoutTester');
 
 // ─── CONFIGURATION & INITIALIZATION ──────────────────────────────────────────
 const app = express();
@@ -786,6 +787,22 @@ app.get('/api/pdf-gen/download', (req, res) => {
     res.download(resolvedPath);
   } catch (err) {
     res.status(500).send(err.message);
+  }
+});
+
+/**
+ * POST /api/test-layout
+ * Automated layout & spacing test using pdfjs-dist
+ */
+app.post('/api/test-layout', async (req, res) => {
+  try {
+    const { pdfPath, maxGapMm = 30 } = req.body;
+    if (!pdfPath) return res.status(400).json({ error: 'pdfPath is required' });
+    const resolvedPath = path.isAbsolute(pdfPath) ? pdfPath : path.join(ROOT_DIR, pdfPath);
+    const result = await testPdfLayout(resolvedPath, { maxGapMm });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
