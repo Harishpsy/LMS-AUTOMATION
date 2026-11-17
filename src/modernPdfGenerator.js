@@ -410,48 +410,68 @@ function buildTransparentOverlayHtml({ questions, dateString, isHindi, tableMap 
 
 /**
  * Clones interactive annotations (e.g. hyperlinks) from a source PDF page to a destination PDF page.
+ * Also cleanses the destination page by stripping any obsolete template body annotations (y < 770),
+ * keeping only authentic header links (AffairsCloud logo & YouTube header icon at y >= 770).
  */
 function transferAnnotations(srcDoc, srcPage, dstDoc, dstPage) {
-  const srcAnnotsRef = srcPage.node.get(PDFName.of('Annots'));
-  if (!srcAnnotsRef) return;
-  const srcAnnots = srcDoc.context.lookup(srcAnnotsRef);
-  if (!srcAnnots || typeof srcAnnots.size !== 'function' || srcAnnots.size() === 0) return;
-
+  // 1. Inspect existing annotations on dstPage (copied from Word template):
+  // Keep ONLY authentic header annotations (y >= 770). Strip any old template body annotations (y < 770).
   const existingAnnotsRef = dstPage.node.get(PDFName.of('Annots'));
   let dstAnnotsList = [];
   if (existingAnnotsRef) {
     const existing = dstDoc.context.lookup(existingAnnotsRef);
     if (existing && typeof existing.size === 'function') {
       for (let k = 0; k < existing.size(); k++) {
-        dstAnnotsList.push(existing.get(k));
-      }
-    }
-  }
-
-  for (let j = 0; j < srcAnnots.size(); j++) {
-    const annotRef = srcAnnots.get(j);
-    const annotObj = srcDoc.context.lookup(annotRef);
-    if (!annotObj || typeof annotObj.entries !== 'function') continue;
-
-    const newDict = dstDoc.context.obj({});
-    for (const [k, v] of annotObj.entries()) {
-      const val = srcDoc.context.lookup(v);
-      if (k.asString() === '/A' && val && typeof val.entries === 'function') {
-        const actionDict = dstDoc.context.obj({});
-        for (const [ak, av] of val.entries()) {
-          const aVal = srcDoc.context.lookup(av);
-          actionDict.set(ak, aVal || av);
+        const item = existing.get(k);
+        const itemObj = dstDoc.context.lookup(item);
+        if (itemObj && typeof itemObj.get === 'function') {
+          const rect = itemObj.get(PDFName.of('Rect'));
+          if (rect && typeof rect.size === 'function' && rect.size() >= 4) {
+            const y1 = rect.get(1) && typeof rect.get(1).asNumber === 'function' ? rect.get(1).asNumber() : 0;
+            // Only keep header annotations (above the dashed line at y=770)
+            if (y1 >= 770) {
+              dstAnnotsList.push(item);
+            }
+          }
         }
-        newDict.set(k, actionDict);
-      } else {
-        newDict.set(k, val);
       }
     }
-    dstAnnotsList.push(dstDoc.context.register(newDict));
   }
 
+  // 2. Clone new annotations from Playwright (explanations, links in cards, etc.)
+  const srcAnnotsRef = srcPage.node.get(PDFName.of('Annots'));
+  if (srcAnnotsRef) {
+    const srcAnnots = srcDoc.context.lookup(srcAnnotsRef);
+    if (srcAnnots && typeof srcAnnots.size === 'function') {
+      for (let j = 0; j < srcAnnots.size(); j++) {
+        const annotRef = srcAnnots.get(j);
+        const annotObj = srcDoc.context.lookup(annotRef);
+        if (!annotObj || typeof annotObj.entries !== 'function') continue;
+
+        const newDict = dstDoc.context.obj({});
+        for (const [k, v] of annotObj.entries()) {
+          const val = srcDoc.context.lookup(v);
+          if (k.asString() === '/A' && val && typeof val.entries === 'function') {
+            const actionDict = dstDoc.context.obj({});
+            for (const [ak, av] of val.entries()) {
+              const aVal = srcDoc.context.lookup(av);
+              actionDict.set(ak, aVal || av);
+            }
+            newDict.set(k, actionDict);
+          } else {
+            newDict.set(k, val);
+          }
+        }
+        dstAnnotsList.push(dstDoc.context.register(newDict));
+      }
+    }
+  }
+
+  // 3. Save sanitized annotations list or remove /Annots if empty
   if (dstAnnotsList.length > 0) {
     dstPage.node.set(PDFName.of('Annots'), dstDoc.context.obj(dstAnnotsList));
+  } else {
+    dstPage.node.delete(PDFName.of('Annots'));
   }
 }
 
@@ -636,7 +656,7 @@ async function generateModernDailyPdf(sourceFilePath, onLog) {
   //    Layout: [0=cover, 1=promo, 2=toc, 3..3+N-1=questionBg×N, N+3=aspirant, N+4=backCover]
   const templateIndices = [
     0, 1, 2,                                        // cover, promo, TOC base
-    ...Array(questionPageCount).fill(3),             // question backgrounds (all same page 3)
+    ...Array(questionPageCount).fill(5),             // question backgrounds (page index 5 has clean header-only annots)
     templateTotal - 2, templateTotal - 1             // aspirant queries, back cover
   ];
   const allTemplateCopies = await finalDoc.copyPages(templatePdfDoc, templateIndices);
@@ -800,8 +820,29 @@ async function generateModernDailyPdf(sourceFilePath, onLog) {
       }
     }
 
-    if (annots.length > 0) {
-      p3Page.node.set(PDFName.of('Annots'), finalDoc.context.obj(annots));
+    // Keep authentic header links (AffairsCloud logo & YouTube icon at y >= 770) on Page 3
+    const existingP3AnnotsRef = p3Page.node.get(PDFName.of('Annots'));
+    const finalP3Annots = [];
+    if (existingP3AnnotsRef) {
+      const existing = finalDoc.context.lookup(existingP3AnnotsRef);
+      if (existing && typeof existing.size === 'function') {
+        for (let k = 0; k < existing.size(); k++) {
+          const item = existing.get(k);
+          const itemObj = finalDoc.context.lookup(item);
+          if (itemObj && typeof itemObj.get === 'function') {
+            const rect = itemObj.get(PDFName.of('Rect'));
+            if (rect && typeof rect.size === 'function' && rect.size() >= 4) {
+              const y1 = rect.get(1) && typeof rect.get(1).asNumber === 'function' ? rect.get(1).asNumber() : 0;
+              if (y1 >= 770) finalP3Annots.push(item);
+            }
+          }
+        }
+      }
+    }
+    finalP3Annots.push(...annots);
+
+    if (finalP3Annots.length > 0) {
+      p3Page.node.set(PDFName.of('Annots'), finalDoc.context.obj(finalP3Annots));
       log({ type: 'info', message: `🔗 Added ${annots.length} interactive navigation links to Table of Contents on Page 3` });
     }
   }
