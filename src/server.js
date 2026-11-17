@@ -592,6 +592,14 @@ app.post('/api/pdf-gen/generate-daily', async (req, res) => {
 
     broadcastEvent({ type: 'pdf-gen-log', message: `🚀 Starting Daily Doc Generation for: ${path.basename(resolvedPath)}` });
 
+    try {
+      delete require.cache[require.resolve('./dailyPdfGenerator')];
+      delete require.cache[require.resolve('./dailyTemplateInjector')];
+      delete require.cache[require.resolve('./quizParser')];
+      delete require.cache[require.resolve('./docxXmlHelpers')];
+    } catch {}
+    const { generateDailyQuiz } = require('./dailyPdfGenerator');
+
     generateDailyQuiz(resolvedPath, (event) => {
       broadcastEvent({ type: 'pdf-gen-log', ...event });
     }).then((generatedFiles) => {

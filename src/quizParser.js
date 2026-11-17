@@ -538,7 +538,7 @@ async function parseDailySource(filePath) {
     const line = lines[i];
     const cleanLine = line.replace(/\*\*/g, '').replace(/[\u2018\u2019\u201A\u201B\u2032\u2035`]/g, "'").trim();
 
-    if (i > 30 && isSectionHeader(cleanLine)) {
+    if (isSectionHeader(cleanLine)) {
       currentSection = cleanLine.replace(/&amp;/gi, '&').trim();
       lastQNum = 0; // Reset question counter so topic-wise/monthly files parse all sections
       i++;
@@ -680,10 +680,9 @@ async function parseDailySource(filePath) {
       }
 
       // In AffairsCloud daily source documents, questions belong to their preceding
-      // red section heading (e.g. NATIONAL AFFAIRS, STATIC, etc.), while Topic Name specifies
-      // subtopic metadata (e.g. "Visits", "MoUs & Agreements", "Current Static GK").
-      // Section should follow currentSection from the document, only falling back to topicFromDoc if currentSection is missing.
-      const finalSection = currentSection || topicFromDoc || 'NATIONAL AFFAIRS';
+      // section heading (e.g. NATIONAL AFFAIRS, STATIC, etc.).
+      // Section strictly follows currentSection from the document, only falling back to 'NATIONAL AFFAIRS' if missing.
+      const finalSection = currentSection || 'NATIONAL AFFAIRS';
 
       questions.push({
         number: questions.length + 1,
@@ -727,10 +726,9 @@ function standardizeQuestions(rawQuestions, defaultDate = '', mode = 'daily') {
       answer = `${q.answerKey}) ${q.answerText || ''}`.trim();
     }
 
-    const rawSec = q.section || q.topic || 'NATIONAL AFFAIRS';
     const section = mode === 'monthly'
-      ? normalizeMonthlySection(rawSec)
-      : normalizeDailySection(rawSec);
+      ? normalizeMonthlySection(q.section || q.topic || 'NATIONAL AFFAIRS')
+      : (q.section || 'NATIONAL AFFAIRS');
 
     return {
       number: q.number || idx + 1,

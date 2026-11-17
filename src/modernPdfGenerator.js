@@ -120,24 +120,19 @@ function buildTransparentOverlayHtml({ questions, dateString, isHindi, tableMap 
     ? `करेंट अफेयर्स Q&A PDF – ${esc(cleanDate)}`
     : `Current Affairs Q&A PDF – ${esc(cleanDate)}`;
 
-  // Group questions by section
-  const sections = {};
-  questions.forEach(q => {
-    const s = q.section || q.topic || (isHindi ? 'राष्ट्रीय मामले' : 'NATIONAL AFFAIRS');
-    if (!sections[s]) sections[s] = [];
-    sections[s].push(q);
-  });
-  const sectionKeys = Object.keys(sections);
-
-  // 1. Build Quiz Questions HTML
+  // 1. Build Quiz Questions HTML (Sequential 1..N order matching uploaded source doc)
   let srcHtml = `<div class="ttl">${mainTitleText}</div>`;
-  let globalNum = 1;
+  let lastSection = null;
 
-  for (const sTitle of sectionKeys) {
-    const sAnchor = `sec-${globalNum}`;
-    srcHtml += `<div class="sect" id="${sAnchor}">${esc(sTitle)}</div>`;
-    for (const q of sections[sTitle]) {
-      const qNum = globalNum++;
+  questions.forEach((q, qIndex) => {
+    const qNum = qIndex + 1;
+    const currentSection = q.section || (isHindi ? 'राष्ट्रीय मामले' : 'NATIONAL AFFAIRS');
+
+    if (currentSection !== lastSection) {
+      const sAnchor = `sec-${qNum}`;
+      srcHtml += `<div class="sect" id="${sAnchor}">${esc(currentSection)}</div>`;
+      lastSection = currentSection;
+    }
       srcHtml += `<div class="q">`;
       srcHtml += `<div class="qh"><div class="num">${qNum}</div><div class="qt">${inline(q.questionText)}</div></div>`;
 
@@ -224,8 +219,7 @@ function buildTransparentOverlayHtml({ questions, dateString, isHindi, tableMap 
         srcHtml += `<div style="clear:both;"></div></div>`;
       }
       srcHtml += `</div></div>`;
-    }
-  }
+  });
 
   // Load CSS and customize for transparent overlay:
   let css = fs.readFileSync(path.join(ROOT_DIR, 'src', 'modernPdf.css'), 'utf8');

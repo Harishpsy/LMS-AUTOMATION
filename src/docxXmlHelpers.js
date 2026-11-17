@@ -18,7 +18,7 @@ function buildAnswerXml(answer, isHindi = false) {
  * Build OpenXML for Explanation paragraphs and tables
  * Formats bullet lines using genuine Word list numbering (<w:numPr>) with proper hanging indent
  */
-function buildExplanationXml(explanation, isHindi = false, tableMap = {}, hyperlinkRegistry = null) {
+function buildExplanationXml(explanation, isHindi = false, tableMap = {}, hyperlinkRegistry = null, bannerRunXml = '') {
   if (!explanation || !explanation.trim()) return '';
 
   const label = isHindi ? 'स्पष्टीकरण:' : 'Explanation:';
@@ -61,7 +61,7 @@ function buildExplanationXml(explanation, isHindi = false, tableMap = {}, hyperl
     attachLabelToFirst = true;
   } else {
     // If first item is a bullet or table, output Explanation: as its own paragraph with keepNext
-    xml += `<w:p><w:pPr><w:keepNext/><w:spacing w:before="60" w:after="30" w:line="276" w:lineRule="auto"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr><w:t xml:space="preserve">${label} </w:t></w:r></w:p>`;
+    xml += `<w:p><w:pPr><w:keepNext/><w:spacing w:before="60" w:after="30" w:line="276" w:lineRule="auto"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr><w:t xml:space="preserve">${label} </w:t></w:r>${bannerRunXml || ''}</w:p>`;
   }
 
   for (const line of lines) {
@@ -115,7 +115,7 @@ function buildExplanationXml(explanation, isHindi = false, tableMap = {}, hyperl
       const runs = renderRunsWithBold(line, false, hyperlinkRegistry);
       if (attachLabelToFirst) {
         const labelRun = `<w:r><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr><w:t xml:space="preserve">${label}</w:t><w:br/></w:r>`;
-        xml += `<w:p><w:pPr><w:spacing w:before="60" w:after="${spacingAfter}" w:line="${lineRuleVal}" w:lineRule="auto"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr></w:pPr>${labelRun}${runs}</w:p>`;
+        xml += `<w:p><w:pPr><w:spacing w:before="60" w:after="${spacingAfter}" w:line="${lineRuleVal}" w:lineRule="auto"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr></w:pPr>${labelRun}${runs}${bannerRunXml || ''}</w:p>`;
         attachLabelToFirst = false;
       } else {
         xml += `<w:p><w:pPr><w:spacing w:before="${spacingBefore}" w:after="${spacingAfter}" w:line="${lineRuleVal}" w:lineRule="auto"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr></w:pPr>${runs}</w:p>`;
@@ -128,10 +128,12 @@ function buildExplanationXml(explanation, isHindi = false, tableMap = {}, hyperl
 
 /**
  * Build OpenXML for an Option paragraph (1), 2), 3)...
+ * Supports attaching a floating promotional banner run directly into Choice 1.
  */
-function buildOptionXml(option, keepNext = false) {
+function buildOptionXml(option, keepNext = false, bannerRunXml = '') {
   const pPrKeep = keepNext ? '<w:keepNext/><w:keepLines/>' : '<w:keepLines/>';
-  return `<w:p><w:pPr>${pPrKeep}<w:spacing w:before="20" w:after="20" w:line="276" w:lineRule="auto"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr><w:t xml:space="preserve">${escapeXml(option)}</w:t></w:r></w:p>`;
+  const banner = bannerRunXml || '';
+  return `<w:p><w:pPr>${pPrKeep}<w:spacing w:before="20" w:after="20" w:line="276" w:lineRule="auto"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr><w:t xml:space="preserve">${escapeXml(option)}</w:t></w:r>${banner}</w:p>`;
 }
 
 /**
@@ -198,7 +200,13 @@ function extractBannerParagraphsFromTemplate(bodyContent, qStartIdx, qEndIdx) {
         const runs = pm[0].match(/<w:r(?:\s+[^>]*)?>[\s\S]*?<\/w:r>/g) || [];
         for (const r of runs) {
           if (r.includes('<w:drawing>') && r.includes('r:embed=')) {
-            banners.push(`<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/></w:pPr>${r}</w:p>`);
+            let cleanedRun = r;
+            if (cleanedRun.includes('<wp:wrapSquare')) {
+              // Normalize side banners from relativeFrom="page" with fixed posOffset (which collides with
+              // tables and pushes the next question to the next page) to relativeFrom="paragraph" with posOffset=0
+              cleanedRun = cleanedRun.replace(/(<wp:positionV\s+relativeFrom=")(?:page)("><wp:posOffset>)\d+(<\/wp:posOffset><\/wp:positionV>)/g, '$1paragraph$20$3');
+            }
+            banners.push(`<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/></w:pPr>${cleanedRun}</w:p>`);
             break;
           }
         }
@@ -306,6 +314,16 @@ function safeWriteFileSync(filePath, buffer) {
   }
 }
 
+/**
+ * Extract the drawing run (<w:r> containing <w:drawing>) from a banner paragraph XML
+ * so it can be directly embedded into Choice 1 or Explanation
+ */
+function extractBannerRunFromParagraph(pXml) {
+  if (!pXml) return '';
+  const m = pXml.match(/<w:r(?:\s+[^>]*)?>[\s\S]*?<w:drawing>[\s\S]*?<\/w:drawing>[\s\S]*?<\/w:r>/);
+  return m ? m[0] : '';
+}
+
 module.exports = {
   buildAnswerXml,
   buildExplanationXml,
@@ -315,6 +333,7 @@ module.exports = {
   buildStatementXml,
   escapeXml,
   extractBannerParagraphsFromTemplate,
+  extractBannerRunFromParagraph,
   makeUniqueBannerXml,
   renderRunsWithBold,
   safeWriteFileSync

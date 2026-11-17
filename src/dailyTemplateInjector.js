@@ -8,7 +8,7 @@
 const fs = require('fs');
 const path = require('path');
 const AdmZip = require('adm-zip');
-const { buildAnswerXml, buildExplanationXml, buildOptionXml, buildQuestionXml, buildSectionHeaderXml, buildStatementXml, escapeXml, extractBannerParagraphsFromTemplate, makeUniqueBannerXml, renderRunsWithBold, safeWriteFileSync } = require('./docxXmlHelpers');
+const { buildAnswerXml, buildExplanationXml, buildOptionXml, buildQuestionXml, buildSectionHeaderXml, buildStatementXml, escapeXml, extractBannerParagraphsFromTemplate, extractBannerRunFromParagraph, makeUniqueBannerXml, renderRunsWithBold, safeWriteFileSync } = require('./docxXmlHelpers');
 
 const ROOT_DIR = path.join(__dirname, '..');
 const TEMPLATES_DAILY = path.join(ROOT_DIR, 'Templates', 'Daily', 'Current Affairs Q&A PDF November 7,8&9 2026 by Affairscloud.docx');
@@ -51,175 +51,70 @@ const SECTION_SPACE_BEFORE = 360;   // above a topic header (NATIONAL AFFAIRS ..
 const SECTION_SPACE_AFTER  = 280;   // between topic header and its first question
 const QUESTION_GAP         = 260;   // between one question block and the next
 
-// ─── CANONICAL TOPIC ORDER ────────────────────────────────────────────────────
-const CANONICAL_SECTION_ORDER = [
-  'NATIONAL AFFAIRS',
-  'INTERNATIONAL AFFAIRS',
-  'BANKING & FINANCE',
-  'ECONOMY & BUSINESS',
-  'AWARDS & RECOGNITIONS',
-  'APPOINTMENTS & RESIGNATIONS',
-  'ACQUISITIONS & MERGERS',
-  'SCIENCE & TECHNOLOGY',
-  'ENVIRONMENT',
-  'SPORTS',
-  'OBITUARY',
-  'BOOKS & AUTHORS',
-  'IMPORTANT DAYS',
-  'STATE NEWS',
-  'STATIC'
-];
-
-function normalizeSection(rawSection) {
-  if (!rawSection) return 'NATIONAL AFFAIRS';
-  const clean = String(rawSection).replace(/&amp;/gi, '&').replace(/\*\*/g, '');
-  const upper = clean.trim().toUpperCase();
-
-  // Check STATIC / GK first so it never gets falsely caught by other rules
-  if (upper.includes('STATIC') || upper === 'GK' || upper.endsWith(' GK')) {
-    return 'STATIC';
-  }
-
-  // Check INTERNATIONAL before NATIONAL because 'INTERNATIONAL' contains 'NATIONAL'!
-  if (upper.includes('INTERNATIONAL') || upper.includes('SUMMIT') || upper.includes('MOU')) {
-    return 'INTERNATIONAL AFFAIRS';
-  }
-  if (upper.includes('NATIONAL') || upper.includes('GOVT') || upper.includes('SCHEME') || upper.includes('VISIT')) {
-    return 'NATIONAL AFFAIRS';
-  }
-  if (upper.includes('BANKING') || upper.includes('FINANCE')) {
-    return 'BANKING & FINANCE';
-  }
-  if (upper.includes('ECONOMY') || upper.includes('BUSINESS')) {
-    return 'ECONOMY & BUSINESS';
-  }
-  if (upper.includes('AWARD') || upper.includes('RECOGNITION')) {
-    return 'AWARDS & RECOGNITIONS';
-  }
-  if (upper.includes('APPOINTMENT') || upper.includes('RESIGNATION')) {
-    return 'APPOINTMENTS & RESIGNATIONS';
-  }
-  if (upper.includes('ACQUISITION') || upper.includes('MERGER')) {
-    return 'ACQUISITIONS & MERGERS';
-  }
-  if (upper.includes('SCIENCE') || upper.includes('TECHNOLOGY') || upper.includes('DEFENCE')) {
-    return 'SCIENCE & TECHNOLOGY';
-  }
-  if (upper.includes('ENVIRONMENT')) {
-    return 'ENVIRONMENT';
-  }
-  if (upper.includes('SPORT')) {
-    return 'SPORTS';
-  }
-  if (upper.includes('OBITUARY') || upper.includes('PASSED AWAY') || upper.includes('DEMISE')) {
-    return 'OBITUARY';
-  }
-  if (upper.includes('BOOK') || upper.includes('AUTHOR')) {
-    return 'BOOKS & AUTHORS';
-  }
-  if (upper.includes('DAY') || upper.includes('WEEK') || upper.includes('YEAR')) {
-    return 'IMPORTANT DAYS';
-  }
-  if (upper.includes('STATE')) {
-    return 'STATE NEWS';
-  }
-
-  return upper;
-}
-
-function getSectionOrderIndex(sectionTitle) {
-  const norm = normalizeSection(sectionTitle);
-  const idx = CANONICAL_SECTION_ORDER.indexOf(norm);
-  return idx !== -1 ? idx : 999;
-}
-
-
 /**
- * Generate all OpenXML paragraphs for a given list of questions grouped by section
- * in the STRICT Canonical Order:
- *  1. NATIONAL AFFAIRS
- *  2. INTERNATIONAL AFFAIRS
- *  3. BANKING & FINANCE
- *  4. ECONOMY & BUSINESS
- *  5. AWARDS & RECOGNITIONS
- *  6. APPOINTMENTS & RESIGNATIONS
- *  7. ACQUISITIONS & MERGERS
- *  8. SCIENCE & TECHNOLOGY
- *  9. ENVIRONMENT
- *  10. SPORTS
- *  11. OBITUARY
- *  12. BOOKS & AUTHORS
- *  13. IMPORTANT DAYS
- *  14. STATE NEWS
+ * Generate all OpenXML paragraphs for questions in sequential document order (1..N).
+ * The source document is already in the correct order; sections are rendered dynamically
+ * as they appear in the uploaded document without any topic-based sorting or grouping.
  */
 function buildQuestionsFragmentXml(questions, isTopicWise = false, isHindi = false, tableMap = {}, bannerParagraphXmls = [], hyperlinkRegistry = null) {
-  const sections = {};
-  questions.forEach(q => {
-    // For Daily Quizzes, q.section represents the actual section header from the document.
-    // Only fall back to q.topic if q.section is not provided.
-    const rawSec = q.section || q.topic || 'NATIONAL AFFAIRS';
-    const sec = normalizeSection(rawSec);
-    if (!sections[sec]) sections[sec] = [];
-    sections[sec].push(q);
-  });
-
-  // Sort sections strictly by the requested canonical order
-  const sortedSectionTitles = Object.keys(sections).sort((a, b) => {
-    return getSectionOrderIndex(a) - getSectionOrderIndex(b);
-  });
-
   let xml = '';
-  let globalNum = 1;
+  let lastSection = null;
 
-  for (const sectionTitle of sortedSectionTitles) {
-    const qs = sections[sectionTitle];
-    if (!qs || qs.length === 0) continue;
+  questions.forEach((q, qIndex) => {
+    const qNum = isTopicWise ? (q.number || qIndex + 1) : (qIndex + 1);
+    const currentSection = (q.section || 'NATIONAL AFFAIRS').toUpperCase();
 
-    xml += buildSectionHeaderXml(sectionTitle, SECTION_SPACE_BEFORE, SECTION_SPACE_AFTER);
+    // Output section header whenever section changes
+    const isNewSection = currentSection !== lastSection;
+    if (isNewSection) {
+      xml += buildSectionHeaderXml(currentSection, SECTION_SPACE_BEFORE, SECTION_SPACE_AFTER);
+      lastSection = currentSection;
+    }
 
-    qs.forEach((q, qIndex) => {
-      const qNum = isTopicWise ? (qs.indexOf(q) + 1) : globalNum++;
-      // First question sits right under its topic header (header's own spacing-after); the rest get the standard gap
-      xml += buildQuestionXml(qNum, q.questionText, hyperlinkRegistry, qIndex === 0 ? 0 : QUESTION_GAP);
+    // First question sits right under its topic header (header's own spacing-after); the rest get the standard gap
+    xml += buildQuestionXml(qNum, q.questionText, hyperlinkRegistry, isNewSection ? 0 : QUESTION_GAP);
 
-      if (q.statements && q.statements.length > 0) {
-        for (const st of q.statements) {
-          // Continuous flow: statements break naturally without premature blank spaces
-          xml += buildStatementXml(st, tableMap, hyperlinkRegistry, false);
-        }
+    if (q.statements && q.statements.length > 0) {
+      for (const st of q.statements) {
+        // Continuous flow: statements break naturally without premature blank spaces
+        xml += buildStatementXml(st, tableMap, hyperlinkRegistry, false);
       }
+    }
 
-      if (q.options && q.options.length > 0) {
-        q.options.forEach((opt) => {
-          // Continuous flow: options break naturally without premature blank spaces
-          xml += buildOptionXml(opt, false);
-        });
+    // Promotion banner placement:
+    // Attach banner starting at Choice 1 because choices have empty space on the right,
+    // allowing question statements to stay full-width and options to wrap neatly around the banner.
+    // If a question has no choices, fall back to starting at Explanation.
+    let bannerRunForThisQ = '';
+    if (bannerParagraphXmls && bannerParagraphXmls.length > 0) {
+      if (qNum === 1 && bannerParagraphXmls[0]) {
+        bannerRunForThisQ = extractBannerRunFromParagraph(bannerParagraphXmls[0]);
+      } else if (qNum === 4 && bannerParagraphXmls[1]) {
+        bannerRunForThisQ = extractBannerRunFromParagraph(bannerParagraphXmls[1]);
+      } else if (qNum === 6 && bannerParagraphXmls[2]) {
+        bannerRunForThisQ = extractBannerRunFromParagraph(bannerParagraphXmls[2]);
       }
+    }
 
-      if (q.answer) {
-        xml += buildAnswerXml(q.answer, isHindi);
-      }
+    if (q.options && q.options.length > 0) {
+      q.options.forEach((opt, optIdx) => {
+        // Choice 1 receives the banner run if assigned to this question
+        const bannerForOpt = (optIdx === 0 && bannerRunForThisQ) ? bannerRunForThisQ : '';
+        xml += buildOptionXml(opt, false, bannerForOpt);
+      });
+      // Once consumed by Choice 1, clear so explanation does not duplicate it
+      if (bannerRunForThisQ) bannerRunForThisQ = '';
+    }
 
-      if (q.explanation) {
-        xml += buildExplanationXml(q.explanation, isHindi, tableMap, hyperlinkRegistry);
-      }
+    if (q.answer) {
+      xml += buildAnswerXml(q.answer, isHindi);
+    }
 
-      // Insert promotional banner only once, matching the master template:
-      // Banner 0 -> after Question 1
-      // Banner 1 -> after Question 3
-      // Banner 2 -> after Question 5
-      const currentQNum = globalNum - 1;
-      if (bannerParagraphXmls && bannerParagraphXmls.length > 0) {
-        if (currentQNum === 1 && bannerParagraphXmls[0]) {
-          xml += bannerParagraphXmls[0];
-        } else if (currentQNum === 3 && bannerParagraphXmls[1]) {
-          xml += bannerParagraphXmls[1];
-        } else if (currentQNum === 5 && bannerParagraphXmls[2]) {
-          xml += bannerParagraphXmls[2];
-        }
-      }
-    });
-  }
+    if (q.explanation) {
+      // If question had no choices, attach banner to Explanation
+      xml += buildExplanationXml(q.explanation, isHindi, tableMap, hyperlinkRegistry, bannerRunForThisQ);
+    }
+  });
 
   return xml;
 }
@@ -382,8 +277,8 @@ function injectQuestionsIntoTemplate({
   const relsXml = zip.readAsText('word/_rels/document.xml.rels') || '';
   hyperlinkRegistry.initFromRels(relsXml);
 
-  const separatorBeforeAspirantXml = '<w:p><w:pPr><w:spacing w:before="360" w:after="160" w:line="276" w:lineRule="auto"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr></w:pPr></w:p>';
-  const newQuestionsXml = buildQuestionsFragmentXml(questions, isTopicWise, isHindi, tableMap, sideBanners, hyperlinkRegistry) + (bottomBanner ? bottomBanner : '') + separatorBeforeAspirantXml;
+  const pageBreakBeforeAspirantXml = '<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/></w:pPr><w:r><w:br w:type="page"/></w:r></w:p>';
+  const newQuestionsXml = buildQuestionsFragmentXml(questions, isTopicWise, isHindi, tableMap, sideBanners, hyperlinkRegistry) + (bottomBanner ? bottomBanner : '') + pageBreakBeforeAspirantXml;
 
   // 7. Replace ONLY the questions portion between startOffset and endOffset!
   const newDocXml = xml.slice(0, startOffset) + newQuestionsXml + xml.slice(endOffset);
