@@ -235,8 +235,8 @@ function buildTransparentOverlayHtml({ questions, dateString, isHindi, tableMap 
   css = css.replace(/\.pin\s*\{[^}]*\}/g, '.pin { height: 100%; background: transparent; display: flex; flex-direction: column; }');
   css = css.replace(/\.hd\s*\{[^}]*\}/g, '.hd { display: none !important; }');
   css = css.replace(/\.ft\s*\{[^}]*\}/g, '.ft { display: none !important; }');
-  // CRITICAL: Padding-top is 124px so headings and questions start cleanly below Word's header line
-  css = css.replace(/\.pb\s*\{[^}]*\}/g, '.pb { flex: 1; min-height: 0; overflow: hidden; padding: 124px 36px 52px 36px; }');
+  // CRITICAL: Padding-top is 114px keeping header space as is; padding-bottom is 30px to fill content for whole page leaving 30px above footer
+  css = css.replace(/\.pb\s*\{[^}]*\}/g, '.pb { flex: 1; min-height: 0; overflow: hidden; padding: 114px 34px 30px 34px; }');
 
   return `<!DOCTYPE html>
 <html>
@@ -258,21 +258,22 @@ function buildTransparentOverlayHtml({ questions, dateString, isHindi, tableMap 
   <script>
     (function() {
       var START = 4; // Quiz starts on Page 4
+      var isHindi = ${JSON.stringify(!!isHindi)};
       var sectionPageMap = {};
 
       function atomsOf(src) {
         var atoms = [], qid = 0;
         Array.prototype.forEach.call(src.children, function (el) {
           var c = el.classList;
-          if (c.contains('sect')) { atoms.push({ t: 'head', h: el.outerHTML, sect: el.textContent.trim(), keep: true }); return; }
-          if (c.contains('ttl')) { atoms.push({ t: 'head', h: el.outerHTML, keep: true }); return; }
+          if (c.contains('sect')) { atoms.push({ t: 'head', h: el.outerHTML, sect: el.textContent.trim(), isSect: true }); return; }
+          if (c.contains('ttl')) { atoms.push({ t: 'head', h: el.outerHTML, isTitle: true }); return; }
           if (!c.contains('q')) { atoms.push({ t: 'free', h: el.outerHTML }); return; }
           qid++;
           Array.prototype.forEach.call(el.children, function (ch) {
             var cc = ch.classList;
-            if (cc.contains('qh')) atoms.push({ t: 'qh', h: ch.outerHTML, q: qid, keep: true });
-            else if (cc.contains('stmt') || cc.contains('tbl-wrap')) atoms.push({ t: 'raw', h: ch.outerHTML, q: qid });
-            else if (cc.contains('opts')) Array.prototype.forEach.call(ch.children, function (li) { atoms.push({ t: 'opt', h: li.outerHTML, q: qid }); });
+            if (cc.contains('qh')) atoms.push({ t: 'qh', h: ch.outerHTML, q: qid, prompt: true });
+            else if (cc.contains('stmt') || cc.contains('tbl-wrap')) atoms.push({ t: 'raw', h: ch.outerHTML, q: qid, prompt: true });
+            else if (cc.contains('opts')) Array.prototype.forEach.call(ch.children, function (li) { atoms.push({ t: 'opt', h: li.outerHTML, q: qid, prompt: true }); });
             else if (cc.contains('sol')) Array.prototype.forEach.call(ch.children, function (s) {
               if (s.classList.contains('ans')) atoms.push({ t: 'ans', h: s.outerHTML, q: qid });
               else if (s.classList.contains('exp')) Array.prototype.forEach.call(s.children, function (e) {
@@ -303,10 +304,86 @@ function buildTransparentOverlayHtml({ questions, dateString, isHindi, tableMap 
         }
         function overflow() { return pb.scrollHeight > pb.clientHeight + 1; }
 
+        function splitParagraphToFit(pNode) {
+          if (!overflow()) return null;
+          var parent = pNode.parentNode;
+          if (!parent) return null;
+
+          var walker = document.createTreeWalker(pNode, NodeFilter.SHOW_TEXT, null, false);
+          var points = [];
+          var tn;
+          while ((tn = walker.nextNode())) {
+            var str = tn.nodeValue;
+            for (var idx = 0; idx < str.length; idx++) {
+              if (str[idx] === ' ' || idx === str.length - 1) {
+                points.push({ node: tn, offset: idx + 1 });
+              }
+            }
+          }
+          if (points.length < 3) return null;
+
+          var low = 0, high = points.length - 1, best = -1;
+          var clone = pNode.cloneNode(true);
+
+          while (low <= high) {
+            var mid = Math.floor((low + high) / 2);
+            var testP = clone.cloneNode(true);
+            parent.replaceChild(testP, pNode);
+
+            var testWalker = document.createTreeWalker(testP, NodeFilter.SHOW_TEXT, null, false);
+            var testPoints = [];
+            var ttn;
+            while ((ttn = testWalker.nextNode())) {
+              var tstr = ttn.nodeValue;
+              for (var tidx = 0; tidx < tstr.length; tidx++) {
+                if (tstr[tidx] === ' ' || tidx === tstr.length - 1) {
+                  testPoints.push({ node: ttn, offset: tidx + 1 });
+                }
+              }
+            }
+
+            if (mid < testPoints.length) {
+              var pt = testPoints[mid];
+              var r = document.createRange();
+              r.setStart(pt.node, pt.offset);
+              r.setEndAfter(testP.lastChild);
+              r.extractContents();
+            }
+
+            if (!overflow()) {
+              best = mid;
+              low = mid + 1; // Try to fit more text
+            } else {
+              high = mid - 1; // Too much
+            }
+            parent.replaceChild(pNode, testP);
+          }
+
+          // If at least 3 words fit on the current page:
+          if (best >= 3) {
+            var bestPt = points[best];
+            var splitRange = document.createRange();
+            splitRange.setStart(bestPt.node, bestPt.offset);
+            splitRange.setEndAfter(pNode.lastChild);
+            var secondFrag = splitRange.extractContents();
+            var secondEl = document.createElement(pNode.tagName.toLowerCase());
+            secondEl.className = pNode.className;
+            secondEl.appendChild(secondFrag);
+            return secondEl.outerHTML;
+          }
+          return null;
+        }
+
         function place(a) {
           var snap = {}, created = [], k;
           for (k in S) snap[k] = S[k];
-          function add(parent, node) { parent.appendChild(node); created.push(node); return node; }
+          var snapMap = {};
+          for (var smk in sectionPageMap) snapMap[smk] = sectionPageMap[smk];
+          var snapStarted = {};
+          for (var sk in started) snapStarted[sk] = started[sk];
+
+          var lastNode = null;
+          function add(parent, node) { parent.appendChild(node); created.push(node); lastNode = node; return node; }
           if (a.t === 'head' || a.t === 'free') {
             add(pb, frag(a.h));
             S.card = null;
@@ -315,8 +392,9 @@ function buildTransparentOverlayHtml({ questions, dateString, isHindi, tableMap 
             }
           } else {
             if (!S.card || S.q !== a.q) {
-              var card = el('div', 'q' + (started[a.q] ? ' cont' : '')); card.setAttribute('data-q', a.q);
-              add(pb, card); S = { card: card, opts: null, sol: null, exp: null, expUl: null, q: a.q }; started[a.q] = true;
+              var isCont = !!started[a.q];
+              var card = el('div', 'q' + (isCont ? ' cont' : '')); card.setAttribute('data-q', a.q);
+              add(pb, card); S = { card: card, opts: null, sol: null, exp: null, expUl: null, q: a.q, isCont: isCont }; started[a.q] = true;
             }
             var C = S.card;
             if (a.t === 'qh' || a.t === 'raw') add(C, frag(a.h));
@@ -332,23 +410,96 @@ function buildTransparentOverlayHtml({ questions, dateString, isHindi, tableMap 
               }
             }
           }
-          return function undo() {
+          var undoFn = function undo() {
             for (var i = created.length - 1; i >= 0; i--) if (created[i].parentNode) created[i].parentNode.removeChild(created[i]);
             S = snap;
+            sectionPageMap = {};
+            for (var smk in snapMap) sectionPageMap[smk] = snapMap[smk];
+            started = {};
+            for (var sk in snapStarted) started[sk] = snapStarted[sk];
           };
+          undoFn.node = lastNode;
+          return undoFn;
         }
 
         newPage();
         var i = 0;
         while (i < atoms.length) {
-          var grp = [atoms[i]];
-          while (atoms[i + grp.length - 1].keep && i + grp.length < atoms.length) grp.push(atoms[i + grp.length]);
-          i += grp.length;
+          var grp = [atoms[i++]];
+
+          // If it's a section header, keep it with the question header of the next question so section header is never alone
+          if (grp[0].sect && i < atoms.length && atoms[i].t === 'qh') {
+            grp.push(atoms[i++]);
+          }
+          // Content flows continuously to cover whole page: qh can start as long as it fits
+          // If it's exph (explanation header), pull in the first paragraph/bullet so heading isn't orphaned
+          else if (grp[0].t === 'exph' && i < atoms.length && atoms[i].q === grp[0].q) {
+            grp.push(atoms[i++]);
+          }
+
           var undos = grp.map(place);
           if (overflow()) {
+            // Check if the last placed atom is a paragraph or list-item that can be split!
+            var lastUndo = undos[undos.length - 1];
+            var lastAtom = grp[grp.length - 1];
+            var splitHtml = null;
+
+            if (lastUndo && lastUndo.node && (lastAtom.t === 'p' || lastAtom.t === 'li')) {
+              // Try splitting this paragraph/item so the first part stays on the current page!
+              splitHtml = splitParagraphToFit(lastUndo.node);
+            }
+
+            if (splitHtml) {
+              // The first part fits on the current page!
+              // Now open newPage() and insert the remaining part as the next atom!
+              newPage();
+              atoms.splice(i, 0, { t: lastAtom.t, h: splitHtml, q: lastAtom.q });
+              continue;
+            }
+
+            // Could not split on current page: roll back all undos
             for (var u = undos.length - 1; u >= 0; u--) undos[u]();
-            if (pb.children.length) newPage();
-            grp.forEach(place);
+
+            if (pb.children.length > 0) {
+              // Current page has existing cards. Move this unit to a fresh new page!
+              newPage();
+              var undos2 = grp.map(place);
+              if (!overflow()) {
+                continue;
+              }
+              // Unit by itself is larger than a full page — fall back to atom-by-atom on the fresh page
+              for (var u2 = undos2.length - 1; u2 >= 0; u2--) undos2[u2]();
+            }
+
+            // Fallback on fresh page (or if grp > full page):
+            // CRITICAL: A section header (sect) must NEVER be alone on a page!
+            var aStart = 0;
+            if (grp[0].isSect || grp[0].sect) {
+              // Place section header and at least the question header together
+              place(grp[0]);
+              if (grp.length > 1) {
+                place(grp[1]);
+                aStart = 2;
+              } else {
+                aStart = 1;
+              }
+            }
+
+            for (var aIdx = aStart; aIdx < grp.length; aIdx++) {
+              var aAtom = grp[aIdx];
+              var aUndo = place(aAtom);
+              if (overflow()) {
+                var sHtml = (aUndo.node && (aAtom.t === 'p' || aAtom.t === 'li')) ? splitParagraphToFit(aUndo.node) : null;
+                if (sHtml) {
+                  newPage();
+                  atoms.splice(i + aIdx, 0, { t: aAtom.t, h: sHtml, q: aAtom.q });
+                  break;
+                }
+                aUndo();
+                if (pb.children.length > 0) newPage();
+                place(aAtom);
+              }
+            }
           }
         }
 
@@ -868,6 +1019,7 @@ async function generateModernDailyPdf(sourceFilePath, onLog) {
 }
 
 module.exports = {
+  buildTransparentOverlayHtml,
   generateModernDailyPdf,
   DEFAULT_DAILY_TEMPLATE_PATH: BASE_TEMPLATE
 };

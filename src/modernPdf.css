@@ -143,10 +143,10 @@ body {
 
 .q.cont {
   border-top: 1px dashed #b8c0d2;
-  border-top-left-radius: 0;
-  border-top-right-radius: 0;
-  margin-top: -7px;
-  padding-top: 7px;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+  margin-top: 0;
+  padding-top: 8px;
 }
 
 .q.more {
