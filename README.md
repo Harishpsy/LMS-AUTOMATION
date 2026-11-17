@@ -8,7 +8,7 @@ An automated end-to-end tool to parse daily Word documents (`.docx`), extract qu
 
 1. **Place your daily `.docx` file** inside the `Quiz Document/` folder (or workspace root).
 2. **Double-click `start.bat`**.
-3. Your browser will automatically open to **http://localhost:3000**:
+3. Your browser will automatically open to **http://localhost:3001**:
    - Click **"Parse Document"** to preview all parsed questions, answers, and explanations.
    - Click **"Start Automated Upload"** and watch the questions publish automatically in real time!
 

@@ -14,7 +14,7 @@ const { convertDocxToPdf } = require('./docxToPdf');
 
 // ─── CONFIGURATION & INITIALIZATION ──────────────────────────────────────────
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 const ROOT_DIR = path.join(__dirname, '..');
 const STORAGE_PATH = path.join(ROOT_DIR, 'storageState.json');
 

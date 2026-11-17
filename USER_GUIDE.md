@@ -16,7 +16,7 @@ The automation system eliminates manual copy-pasting by:
           ↓
 [ Start_Dashboard.bat ] 
           ↓
-[ http://localhost:3000 ] 
+[ http://localhost:3001 ] 
           ↓
 [ Parse & Preview Questions ] 
           ↓
@@ -40,7 +40,7 @@ The automation system eliminates manual copy-pasting by:
    ```
 
 > **Tip (Zero Installation for Team Members):** 
-> You can also run the dashboard on one main PC or server. Anyone on the same office Wi-Fi/LAN can open `http://<YOUR_IP>:3000` in their browser and use the full upload tool without installing Node.js at all!
+> You can also run the dashboard on one main PC or server. Anyone on the same office Wi-Fi/LAN can open `http://<YOUR_IP>:3001` in their browser and use the full upload tool without installing Node.js at all!
 
 ---
 
@@ -53,7 +53,7 @@ The automation system eliminates manual copy-pasting by:
 2. Double-click the file named **`Start_Dashboard.bat`**.
 3. A command prompt window will open and initialize the server.
 4. Your default browser will automatically open to:
-   **`http://localhost:3000`**
+   **`http://localhost:3001`**
 
 > **Note:** Keep the command prompt window open in the background while using the dashboard. You can close it once your upload tasks are complete.
 
@@ -156,7 +156,7 @@ To ensure 100% parsing accuracy:
 | **"Session Expired" / Login failed** | LMS session token expired or password changed | Click **"LMS Credentials"** at the top right, enter your updated credentials, and click **Save & Authenticate**. |
 | **Document does not appear in dropdown** | File is saved in another folder or wrong extension | Ensure the file is saved as `.docx` (not `.doc` or `.pdf`) in the `Quiz Document/` folder, or use the **"Upload from Computer"** tab. |
 | **Upload stopped mid-way due to internet drop** | Connection interrupted during question entry | Check the last saved question in LMS (e.g., Q10). Change **"Start from Q#"** to **`11`** and click **Start Automated Upload** to resume without duplicates. |
-| **Port 3000 in use error** | Another instance of the server is running | Close any open Node.js command prompt windows, then re-open `Start_Dashboard.bat`. |
+| **Port 3001 in use error** | Another instance of the server is running | Close any open Node.js command prompt windows, then re-open `Start_Dashboard.bat`. |
 
 ---
 
