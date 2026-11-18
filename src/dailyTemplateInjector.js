@@ -139,7 +139,8 @@ function injectQuestionsIntoTemplate({
   outputPath,
   isTopicWise = false,
   isHindi = false,
-  tableMap = {}
+  tableMap = {},
+  includeBottomBanner = true
 }) {
   if (!fs.existsSync(templatePath)) {
     throw new Error(`Template DOCX not found at: ${templatePath}`);
@@ -277,7 +278,7 @@ function injectQuestionsIntoTemplate({
   const relsXml = zip.readAsText('word/_rels/document.xml.rels') || '';
   hyperlinkRegistry.initFromRels(relsXml);
 
-  const newQuestionsXml = buildQuestionsFragmentXml(questions, isTopicWise, isHindi, tableMap, sideBanners, hyperlinkRegistry);
+  const newQuestionsXml = buildQuestionsFragmentXml(questions, isTopicWise, isHindi, tableMap, sideBanners, hyperlinkRegistry) + (includeBottomBanner && bottomBanner ? bottomBanner : '');
 
   // 7. Ensure Aspirant Queries paragraph starts at the top of its own dedicated page
   // using <w:pageBreakBefore/> on the paragraph itself, preventing Word from splitting

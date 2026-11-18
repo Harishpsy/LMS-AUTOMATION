@@ -6,6 +6,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { PDFParse } = require('pdf-parse');
 const { convertDocxToPdf } = require('./docxToPdf');
 const {
   injectQuestionsIntoTemplate,
@@ -82,6 +83,39 @@ async function generateDailyQuiz(sourceFilePath, onLog) {
     log({ type: 'info', message: `📄 Generating native Daily PDF with Word engine...` });
     await convertDocxToPdf(docxPath, pdfPath);
     log({ type: 'success', message: `✅ Daily PDF created: ${path.basename(pdfPath)}` });
+
+    // Check if bottom banner spilled onto an extra blank page before Aspirant Queries:
+    // If space was sufficient, the page has question content + banner (charCount >= 250).
+    // If space was NOT sufficient, Word pushed the banner onto its own blank page (charCount < 250).
+    // In that case, re-inject with includeBottomBanner: false to skip it and avoid an extra page.
+    try {
+      const dataBuffer = fs.readFileSync(pdfPath);
+      const parser = new PDFParse(new Uint8Array(dataBuffer));
+      await parser.load();
+      const textResult = await parser.getText();
+      const aspIdx = textResult.pages.findIndex(p => p.text.includes('Aspirant Queries'));
+      if (aspIdx > 0) {
+        const pageBeforeAsp = textResult.pages[aspIdx - 1];
+        if (pageBeforeAsp.text.trim().length < 250) {
+          log({ type: 'info', message: `ℹ️ Insufficient space for bottom banner; skipping banner to eliminate extra blank page.` });
+          injectQuestionsIntoTemplate({
+            templatePath: DEFAULT_DAILY_TEMPLATE_PATH,
+            questions,
+            dateString: rawParsed.dateString,
+            outputPath: docxPath,
+            isTopicWise: false,
+            isHindi,
+            tableMap: rawParsed.tableMap || {},
+            includeBottomBanner: false
+          });
+          await convertDocxToPdf(docxPath, pdfPath);
+        } else {
+          log({ type: 'info', message: `✅ Bottom banner embedded cleanly in available space.` });
+        }
+      }
+    } catch (auditErr) {
+      // If layout inspection encounters any issue, keep existing PDF
+    }
   } catch (pdfErr) {
     log({ type: 'warn', message: `⚠️ Note: PDF will be generated on download (${pdfErr.message})` });
   }
