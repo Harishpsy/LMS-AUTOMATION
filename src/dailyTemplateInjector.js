@@ -52,13 +52,87 @@ const SECTION_SPACE_AFTER  = 280;   // between topic header and its first questi
 const QUESTION_GAP         = 260;   // between one question block and the next
 
 /**
+ * Select question numbers for promotional side banners.
+ *
+ * Rules:
+ *  - Banner 0 (Daily Current Affairs): ALWAYS fixed on Q1.
+ *  - Banner 1 & 2 (Handwritten Notes, Learn from Picture): randomly placed on
+ *    questions that start in the top 30% of a page (ratio <= 0.30), spread
+ *    across the mid and later zones of the quiz so there is no blank gap.
+ */
+function selectBannerQuestions(questions, numBanners) {
+  if (!questions || questions.length === 0 || numBanners <= 0) return new Map();
+
+  const selectedMap = new Map(); // qNum -> bannerIndex
+
+  // Banner 0: always Q1 (Daily Current Affairs banner goes on the very first question)
+  if (numBanners >= 1) {
+    selectedMap.set(1, 0);
+  }
+
+  if (numBanners < 2) return selectedMap;
+
+  // For banner 1 and 2 estimate page-top ratio for each question
+  const PAGE_CAP = 2300;
+  let cum = 0;
+  const candidates = questions.map((q, idx) => {
+    const qLen = (q.questionText || '').length +
+      (q.statements || []).join(' ').length +
+      (q.options || []).join(' ').length +
+      (q.answer || '').length +
+      (q.explanation || '').length + 150;
+    const ratio = (cum % PAGE_CAP) / PAGE_CAP;
+    cum += qLen;
+    return { qNum: idx + 1, ratio };
+  });
+
+  const total = questions.length;
+  // Zone for banner 1: questions 2 to 65% of quiz
+  // Zone for banner 2: questions 65% to end (avoid very last Q)
+  const zones = [
+    { start: 1, end: Math.floor(total * 0.55), bIdx: 1 },
+    { start: Math.floor(total * 0.55), end: total - 2, bIdx: 2 },
+  ];
+
+  for (let z = 0; z < (numBanners - 1); z++) {
+    const zone = zones[z];
+    if (!zone) break;
+    const bIdx = zone.bIdx;
+    const zoneCandidates = candidates.slice(zone.start, zone.end + 1)
+      .filter(c => !selectedMap.has(c.qNum)); // skip already assigned
+
+    // PRIMARY: start in top 30% of page — guaranteed no blank gap
+    let safe = zoneCandidates.filter(c => c.ratio <= 0.30);
+    // FALLBACK 1: top 45%
+    if (safe.length === 0) safe = zoneCandidates.filter(c => c.ratio <= 0.45);
+    // FALLBACK 2: any
+    if (safe.length === 0) safe = zoneCandidates;
+
+    const picked = safe[Math.floor(Math.random() * safe.length)] || safe[0];
+    if (picked) selectedMap.set(picked.qNum, bIdx);
+  }
+
+  return selectedMap;
+}
+
+/**
  * Generate all OpenXML paragraphs for questions in sequential document order (1..N).
  * The source document is already in the correct order; sections are rendered dynamically
  * as they appear in the uploaded document without any topic-based sorting or grouping.
  */
-function buildQuestionsFragmentXml(questions, isTopicWise = false, isHindi = false, tableMap = {}, bannerParagraphXmls = [], hyperlinkRegistry = null) {
+function buildQuestionsFragmentXml(questions, isTopicWise = false, isHindi = false, tableMap = {}, bannerParagraphXmls = [], hyperlinkRegistry = null, bannerAssignments = null) {
   let xml = '';
   let lastSection = null;
+
+  // Banner assignments: if explicit map provided, use it; otherwise fallback to safe selection
+  let bannerMap;
+  if (bannerAssignments instanceof Map) {
+    bannerMap = bannerAssignments;
+  } else if (bannerAssignments && typeof bannerAssignments === 'object') {
+    bannerMap = new Map(Object.entries(bannerAssignments).map(([k, v]) => [parseInt(k, 10), v]));
+  } else {
+    bannerMap = selectBannerQuestions(questions, bannerParagraphXmls ? bannerParagraphXmls.length : 0);
+  }
 
   questions.forEach((q, qIndex) => {
     const qNum = isTopicWise ? (q.number || qIndex + 1) : (qIndex + 1);
@@ -75,9 +149,11 @@ function buildQuestionsFragmentXml(questions, isTopicWise = false, isHindi = fal
     xml += buildQuestionXml(qNum, q.questionText, hyperlinkRegistry, isNewSection ? 0 : QUESTION_GAP);
 
     if (q.statements && q.statements.length > 0) {
-      for (const st of q.statements) {
-        // Continuous flow: statements break naturally without premature blank spaces
-        xml += buildStatementXml(st, tableMap, hyperlinkRegistry, false);
+      for (let stIdx = 0; stIdx < q.statements.length; stIdx++) {
+        const st = q.statements[stIdx];
+        // The last statement before choices has keepNext = true so it never gets orphaned from Choice 1
+        const isLastStatement = stIdx === q.statements.length - 1;
+        xml += buildStatementXml(st, tableMap, hyperlinkRegistry, isLastStatement);
       }
     }
 
@@ -86,13 +162,10 @@ function buildQuestionsFragmentXml(questions, isTopicWise = false, isHindi = fal
     // allowing question statements to stay full-width and options to wrap neatly around the banner.
     // If a question has no choices, fall back to starting at Explanation.
     let bannerRunForThisQ = '';
-    if (bannerParagraphXmls && bannerParagraphXmls.length > 0) {
-      if (qNum === 1 && bannerParagraphXmls[0]) {
-        bannerRunForThisQ = extractBannerRunFromParagraph(bannerParagraphXmls[0]);
-      } else if (qNum === 4 && bannerParagraphXmls[1]) {
-        bannerRunForThisQ = extractBannerRunFromParagraph(bannerParagraphXmls[1]);
-      } else if (qNum === 6 && bannerParagraphXmls[2]) {
-        bannerRunForThisQ = extractBannerRunFromParagraph(bannerParagraphXmls[2]);
+    if (bannerParagraphXmls && bannerParagraphXmls.length > 0 && bannerMap.has(qNum)) {
+      const bannerIdx = bannerMap.get(qNum);
+      if (bannerParagraphXmls[bannerIdx]) {
+        bannerRunForThisQ = extractBannerRunFromParagraph(bannerParagraphXmls[bannerIdx]);
       }
     }
 
@@ -140,7 +213,8 @@ function injectQuestionsIntoTemplate({
   isTopicWise = false,
   isHindi = false,
   tableMap = {},
-  includeBottomBanner = true
+  includeBottomBanner = true,
+  bannerAssignments = null
 }) {
   if (!fs.existsSync(templatePath)) {
     throw new Error(`Template DOCX not found at: ${templatePath}`);
@@ -278,7 +352,7 @@ function injectQuestionsIntoTemplate({
   const relsXml = zip.readAsText('word/_rels/document.xml.rels') || '';
   hyperlinkRegistry.initFromRels(relsXml);
 
-  const newQuestionsXml = buildQuestionsFragmentXml(questions, isTopicWise, isHindi, tableMap, sideBanners, hyperlinkRegistry) + (includeBottomBanner && bottomBanner ? bottomBanner : '');
+  const newQuestionsXml = buildQuestionsFragmentXml(questions, isTopicWise, isHindi, tableMap, sideBanners, hyperlinkRegistry, bannerAssignments) + (includeBottomBanner && bottomBanner ? bottomBanner : '');
 
   // 7. Ensure Aspirant Queries paragraph starts at the top of its own dedicated page
   // using <w:pageBreakBefore/> on the paragraph itself, preventing Word from splitting

@@ -554,7 +554,7 @@ async function parseDailySource(filePath) {
     if (qStartMatch && isRealQuestionAhead(lines, i)) {
       const qNum = parseInt(qStartMatch[1], 10);
       lastQNum = qNum;
-      const questionText = qStartMatch[2].trim();
+      let questionText = qStartMatch[2].trim();
 
       // Collect statements A), B), C)... or embedded tables/descriptive text before options
       const statements = [];
@@ -568,8 +568,17 @@ async function parseDailySource(filePath) {
         if (statements.length === 0 && isRealQuestionAhead(lines, i)) break;
 
         // If it's a table placeholder or statement A), B)...
-        if (sLine.startsWith('__TABLE_PLACEHOLDER_') || /^[A-E][).]/i.test(cleanSLine)) {
+        const isStatementItem = sLine.startsWith('__TABLE_PLACEHOLDER_') ||
+          /^[A-E][).]/i.test(cleanSLine) ||
+          /^[ivxldcm]+[).]/i.test(cleanSLine) ||
+          /^[●•\-]\s*/.test(cleanSLine);
+
+        if (isStatementItem) {
           statements.push(cleanSLine);
+          i++;
+        } else if (statements.length === 0) {
+          // If no statement item has started yet, this line is continuation of the question text
+          questionText += ' ' + cleanSLine;
           i++;
         } else {
           // Check if upcoming lines have options [1-5])
