@@ -56,9 +56,8 @@ const QUESTION_GAP         = 260;   // between one question block and the next
  *
  * Rules:
  *  - Banner 0 (Daily Current Affairs): ALWAYS fixed on Q1.
- *  - Banner 1 & 2 (Handwritten Notes, Learn from Picture): randomly placed on
- *    questions that start in the top 30% of a page (ratio <= 0.30), spread
- *    across the mid and later zones of the quiz so there is no blank gap.
+ *  - Banner 1 & 2 (Handwritten Notes, Learn from Picture): dynamically assigned
+ *    via post-generation layout audit in dailyPdfGenerator where exact line clearance is verified.
  */
 function selectBannerQuestions(questions, numBanners) {
   if (!questions || questions.length === 0 || numBanners <= 0) return new Map();
@@ -70,48 +69,8 @@ function selectBannerQuestions(questions, numBanners) {
     selectedMap.set(1, 0);
   }
 
-  if (numBanners < 2) return selectedMap;
-
-  // For banner 1 and 2 estimate page-top ratio for each question
-  const PAGE_CAP = 2300;
-  let cum = 0;
-  const candidates = questions.map((q, idx) => {
-    const qLen = (q.questionText || '').length +
-      (q.statements || []).join(' ').length +
-      (q.options || []).join(' ').length +
-      (q.answer || '').length +
-      (q.explanation || '').length + 150;
-    const ratio = (cum % PAGE_CAP) / PAGE_CAP;
-    cum += qLen;
-    return { qNum: idx + 1, ratio };
-  });
-
-  const total = questions.length;
-  // Zone for banner 1: questions 2 to 65% of quiz
-  // Zone for banner 2: questions 65% to end (avoid very last Q)
-  const zones = [
-    { start: 1, end: Math.floor(total * 0.55), bIdx: 1 },
-    { start: Math.floor(total * 0.55), end: total - 2, bIdx: 2 },
-  ];
-
-  for (let z = 0; z < (numBanners - 1); z++) {
-    const zone = zones[z];
-    if (!zone) break;
-    const bIdx = zone.bIdx;
-    const zoneCandidates = candidates.slice(zone.start, zone.end + 1)
-      .filter(c => !selectedMap.has(c.qNum)); // skip already assigned
-
-    // PRIMARY: start in top 30% of page — guaranteed no blank gap
-    let safe = zoneCandidates.filter(c => c.ratio <= 0.30);
-    // FALLBACK 1: top 45%
-    if (safe.length === 0) safe = zoneCandidates.filter(c => c.ratio <= 0.45);
-    // FALLBACK 2: any
-    if (safe.length === 0) safe = zoneCandidates;
-
-    const picked = safe[Math.floor(Math.random() * safe.length)] || safe[0];
-    if (picked) selectedMap.set(picked.qNum, bIdx);
-  }
-
+  // Without a layout audit, do not guess questions for banners 1 & 2 to avoid causing blank gaps.
+  // They are placed dynamically and safely during layout audit in dailyPdfGenerator.
   return selectedMap;
 }
 

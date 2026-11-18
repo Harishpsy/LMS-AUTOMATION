@@ -58,7 +58,8 @@ async function generateDailyQuiz(sourceFilePath, onLog) {
       outputPath: docxPath,
       isTopicWise: false,
       isHindi,
-      tableMap: rawParsed.tableMap || {}
+      tableMap: rawParsed.tableMap || {},
+      bannerAssignments: { 1: 0 } // Pass 1: Banner 0 (Daily CA) on Q1 only
     });
     log({ type: 'success', message: `✅ Daily Template preserved & updated: ${docxFilename}` });
   } catch (err) {
@@ -84,37 +85,88 @@ async function generateDailyQuiz(sourceFilePath, onLog) {
     await convertDocxToPdf(docxPath, pdfPath);
     log({ type: 'success', message: `✅ Daily PDF created: ${path.basename(pdfPath)}` });
 
-    // Check if bottom banner spilled onto an extra blank page before Aspirant Queries:
-    // If space was sufficient, the page has question content + banner (charCount >= 250).
-    // If space was NOT sufficient, Word pushed the banner onto its own blank page (charCount < 250).
-    // In that case, re-inject with includeBottomBanner: false to skip it and avoid an extra page.
+    // Layout audit: inspect actual Word layout from generated PDF
     try {
       const dataBuffer = fs.readFileSync(pdfPath);
       const parser = new PDFParse(new Uint8Array(dataBuffer));
       await parser.load();
       const textResult = await parser.getText();
+
+      // 1. Sequentially identify questions and check their page position
+      let expectedQ = 1;
+      const safeCandidates = [];
+      for (let p = 3; p < textResult.pages.length; p++) {
+        const pageText = textResult.pages[p].text;
+        if (pageText.includes('Aspirant Queries')) break;
+        const lines = pageText.split('\n').map(l => l.trim()).filter(Boolean);
+        lines.forEach((l, lIdx) => {
+          const m = l.match(/^(\d{1,2})\.\s*/);
+          if (m) {
+            const qNum = parseInt(m[1], 10);
+            if (qNum === expectedQ) {
+              const posRatio = (lIdx + 1) / lines.length;
+              const remainingLines = lines.length - (lIdx + 1);
+              // Safe candidate: starts in top 28% of page with at least 26 lines remaining
+              if (qNum > 1 && qNum < questions.length && (posRatio <= 0.28 || remainingLines >= 26)) {
+                safeCandidates.push({ qNum, page: p + 1, posRatio, remainingLines });
+              }
+              expectedQ++;
+            }
+          }
+        });
+      }
+
+      // 2. Select candidates for Banner 1 (mid-quiz) and Banner 2 (late-quiz)
+      const midBoundary = Math.floor(questions.length * 0.55);
+      const midCandidates = safeCandidates.filter(c => c.qNum >= 3 && c.qNum <= midBoundary);
+      const lateCandidates = safeCandidates.filter(c => c.qNum > midBoundary && c.qNum < questions.length);
+
+      const midPick = midCandidates.length > 0
+        ? midCandidates[Math.floor(Math.random() * midCandidates.length)].qNum
+        : null;
+      const latePick = lateCandidates.length > 0
+        ? lateCandidates[Math.floor(Math.random() * lateCandidates.length)].qNum
+        : null;
+
+      const bannerAssignments = { 1: 0 };
+      if (midPick) bannerAssignments[midPick] = 1;
+      if (latePick) bannerAssignments[latePick] = 2;
+
+      // 3. Inspect bottom banner clearance before Aspirant Queries
       const aspIdx = textResult.pages.findIndex(p => p.text.includes('Aspirant Queries'));
+      let includeBottomBanner = true;
       if (aspIdx > 0) {
         const pageBeforeAsp = textResult.pages[aspIdx - 1];
         if (pageBeforeAsp.text.trim().length < 250) {
-          log({ type: 'info', message: `ℹ️ Insufficient space for bottom banner; skipping banner to eliminate extra blank page.` });
-          injectQuestionsIntoTemplate({
-            templatePath: DEFAULT_DAILY_TEMPLATE_PATH,
-            questions,
-            dateString: rawParsed.dateString,
-            outputPath: docxPath,
-            isTopicWise: false,
-            isHindi,
-            tableMap: rawParsed.tableMap || {},
-            includeBottomBanner: false
-          });
-          await convertDocxToPdf(docxPath, pdfPath);
+          includeBottomBanner = false;
+          log({ type: 'info', message: 'ℹ️ Insufficient space for bottom banner; skipping banner to eliminate extra blank page.' });
         } else {
-          log({ type: 'info', message: `✅ Bottom banner embedded cleanly in available space.` });
+          log({ type: 'info', message: '✅ Bottom banner embedded cleanly in available space.' });
         }
       }
+
+      // 4. Pass 2: Re-inject with layout-verified banner assignments if mid/late banner or bottom banner adjusted
+      if (midPick || latePick || !includeBottomBanner) {
+        log({
+          type: 'info',
+          message: `🎯 Applying safe banner placement: ${Object.entries(bannerAssignments).map(([q, b]) => `Banner ${b} on Q${q}`).join(', ')}`
+        });
+        injectQuestionsIntoTemplate({
+          templatePath: DEFAULT_DAILY_TEMPLATE_PATH,
+          questions,
+          dateString: rawParsed.dateString,
+          outputPath: docxPath,
+          isTopicWise: false,
+          isHindi,
+          tableMap: rawParsed.tableMap || {},
+          includeBottomBanner,
+          bannerAssignments
+        });
+        await convertDocxToPdf(docxPath, pdfPath);
+        log({ type: 'success', message: `✅ Daily PDF verified and updated with safe banner placement: ${path.basename(pdfPath)}` });
+      }
     } catch (auditErr) {
-      // If layout inspection encounters any issue, keep existing PDF
+      log({ type: 'warn', message: `⚠️ Layout audit note: ${auditErr.message}` });
     }
   } catch (pdfErr) {
     log({ type: 'warn', message: `⚠️ Note: PDF will be generated on download (${pdfErr.message})` });
@@ -156,7 +208,9 @@ async function generateFromParsedQuiz(quizData, onLog) {
       outputPath: docxPath,
       isTopicWise: false,
       isHindi,
-      tableMap: quizData.tableMap || {}
+      tableMap: quizData.tableMap || {},
+      includeBottomBanner: true,
+      bannerAssignments: { 1: 0 }
     });
     log({ type: 'success', message: `✅ Daily Template preserved & updated: ${docxFilename}` });
   } catch (err) {
@@ -176,6 +230,77 @@ async function generateFromParsedQuiz(quizData, onLog) {
     log({ type: 'info', message: `📄 Generating native Daily PDF...` });
     await convertDocxToPdf(docxPath, pdfPath);
     log({ type: 'success', message: `✅ Daily PDF created: ${path.basename(pdfPath)}` });
+
+    // Layout audit
+    try {
+      const dataBuffer = fs.readFileSync(pdfPath);
+      const parser = new PDFParse(new Uint8Array(dataBuffer));
+      await parser.load();
+      const textResult = await parser.getText();
+
+      let expectedQ = 1;
+      const safeCandidates = [];
+      for (let p = 3; p < textResult.pages.length; p++) {
+        const pageText = textResult.pages[p].text;
+        if (pageText.includes('Aspirant Queries')) break;
+        const lines = pageText.split('\n').map(l => l.trim()).filter(Boolean);
+        lines.forEach((l, lIdx) => {
+          const m = l.match(/^(\d{1,2})\.\s*/);
+          if (m) {
+            const qNum = parseInt(m[1], 10);
+            if (qNum === expectedQ) {
+              const posRatio = (lIdx + 1) / lines.length;
+              const remainingLines = lines.length - (lIdx + 1);
+              if (qNum > 1 && qNum < questions.length && (posRatio <= 0.28 || remainingLines >= 26)) {
+                safeCandidates.push({ qNum, page: p + 1, posRatio, remainingLines });
+              }
+              expectedQ++;
+            }
+          }
+        });
+      }
+
+      const midBoundary = Math.floor(questions.length * 0.55);
+      const midCandidates = safeCandidates.filter(c => c.qNum >= 3 && c.qNum <= midBoundary);
+      const lateCandidates = safeCandidates.filter(c => c.qNum > midBoundary && c.qNum < questions.length);
+
+      const midPick = midCandidates.length > 0
+        ? midCandidates[Math.floor(Math.random() * midCandidates.length)].qNum
+        : null;
+      const latePick = lateCandidates.length > 0
+        ? lateCandidates[Math.floor(Math.random() * lateCandidates.length)].qNum
+        : null;
+
+      const bannerAssignments = { 1: 0 };
+      if (midPick) bannerAssignments[midPick] = 1;
+      if (latePick) bannerAssignments[latePick] = 2;
+
+      const aspIdx = textResult.pages.findIndex(p => p.text.includes('Aspirant Queries'));
+      let includeBottomBanner = true;
+      if (aspIdx > 0) {
+        const pageBeforeAsp = textResult.pages[aspIdx - 1];
+        if (pageBeforeAsp.text.trim().length < 250) {
+          includeBottomBanner = false;
+        }
+      }
+
+      if (midPick || latePick || !includeBottomBanner) {
+        injectQuestionsIntoTemplate({
+          templatePath: DEFAULT_DAILY_TEMPLATE_PATH,
+          questions,
+          dateString: title,
+          outputPath: docxPath,
+          isTopicWise: false,
+          isHindi,
+          tableMap: quizData.tableMap || {},
+          includeBottomBanner,
+          bannerAssignments
+        });
+        await convertDocxToPdf(docxPath, pdfPath);
+      }
+    } catch (auditErr) {
+      // Keep existing PDF
+    }
   } catch (pdfErr) {
     log({ type: 'warn', message: `⚠️ Note: PDF will be generated on download (${pdfErr.message})` });
   }
