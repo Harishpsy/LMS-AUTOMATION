@@ -272,18 +272,25 @@ function injectQuestionsIntoTemplate({
   const sideBanners = allBanners.filter(b => !b.includes('wrapTopAndBottom') && !b.includes('align="center"'));
   const bottomBanner = allBanners.find(b => b.includes('wrapTopAndBottom') || b.includes('align="center"')) || '';
 
-  // 6. Generate the new questions OpenXML snippet with banners re-inserted every N questions
+  // 6. Generate the new questions OpenXML snippet with banners
   const hyperlinkRegistry = new HyperlinkRegistry();
   const relsXml = zip.readAsText('word/_rels/document.xml.rels') || '';
   hyperlinkRegistry.initFromRels(relsXml);
 
-  const pageBreakBeforeAspirantXml = '<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/></w:pPr><w:r><w:br w:type="page"/></w:r></w:p>';
-  const newQuestionsXml = buildQuestionsFragmentXml(questions, isTopicWise, isHindi, tableMap, sideBanners, hyperlinkRegistry) + (bottomBanner ? bottomBanner : '') + pageBreakBeforeAspirantXml;
+  const newQuestionsXml = buildQuestionsFragmentXml(questions, isTopicWise, isHindi, tableMap, sideBanners, hyperlinkRegistry);
 
-  // 7. Replace ONLY the questions portion between startOffset and endOffset!
-  const newDocXml = xml.slice(0, startOffset) + newQuestionsXml + xml.slice(endOffset);
+  // 7. Ensure Aspirant Queries paragraph starts at the top of its own dedicated page
+  // using <w:pageBreakBefore/> on the paragraph itself, preventing Word from splitting
+  // Aspirant Queries across multiple pages or creating an empty blank spacer page.
+  const aspirantPart = xml.slice(endOffset).replace(
+    /^(\s*<w:p[^>]*><w:pPr>)/,
+    '$1<w:pageBreakBefore/>'
+  );
 
-  // 7. Update document.xml inside the zip
+  // Replace ONLY the questions portion between startOffset and endOffset!
+  const newDocXml = xml.slice(0, startOffset) + newQuestionsXml + aspirantPart;
+
+  // 7c. Update document.xml inside the zip
   zip.updateFile('word/document.xml', Buffer.from(newDocXml, 'utf-8'));
 
   // 8. Patch numbering.xml – ensure bullets use canonical Word Symbol font (&#xF0B7;) at 10pt (w:val="20")
