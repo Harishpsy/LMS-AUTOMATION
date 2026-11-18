@@ -313,12 +313,12 @@ function injectQuestionsIntoTemplate({
 
   const newQuestionsXml = buildQuestionsFragmentXml(questions, isTopicWise, isHindi, tableMap, sideBanners, hyperlinkRegistry, bannerAssignments) + (includeBottomBanner && bottomBanner ? bottomBanner : '');
 
-  // 7. Ensure Aspirant Queries paragraph starts at the top of its own dedicated page
-  // using <w:pageBreakBefore/> on the paragraph itself, preventing Word from splitting
-  // Aspirant Queries across multiple pages or creating an empty blank spacer page.
+  // 7. Aspirant Queries: ensure heading stays with its content (<w:keepNext/>),
+  // but allow it to flow naturally onto the page right after Question 30 when space is available,
+  // completely eliminating blank space gaps at the end of the quiz.
   const aspirantPart = xml.slice(endOffset).replace(
     /^(\s*<w:p[^>]*><w:pPr>)/,
-    '$1<w:pageBreakBefore/>'
+    '$1<w:keepNext/>'
   );
 
   // Replace ONLY the questions portion between startOffset and endOffset!
