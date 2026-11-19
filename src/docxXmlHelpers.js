@@ -96,6 +96,14 @@ function buildExplanationXml(explanation, isHindi = false, tableMap = {}, hyperl
       continue;
     }
 
+    // Check if line is an indented numbered sub-list item (e.g. "1. Item", "2. Item")
+    const isNumberedItem = /^\d{1,2}\.\s+/.test(line.replace(/\*\*/g, '').trim());
+    if (isNumberedItem) {
+      const runs = renderRunsWithBold(line, false, hyperlinkRegistry, isHindi);
+      xml += `<w:p><w:pPr><w:spacing w:before="20" w:after="20" w:line="276" w:lineRule="auto"/><w:ind w:left="720"/><w:rPr>${getRPrBase(isHindi)}</w:rPr></w:pPr>${runs}</w:p>`;
+      continue;
+    }
+
     if (isBullet) {
       // Strip the raw bullet character – use native Word <w:numPr> for the ● dot
       // (numbering.xml is patched separately to set dot size to 9.5pt)

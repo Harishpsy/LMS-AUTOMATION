@@ -476,31 +476,57 @@ function extractElementsFromDocx(filePath) {
   }
 }
 
-function isRealQuestionAhead(lines, startIdx) {
+function isRealQuestionAhead(lines, startIdx, lastQNum = 0) {
   if (startIdx >= lines.length) return false;
   const line = lines[startIdx];
   const clean = line.replace(/\*\*/g, '').replace(/[\u2018\u2019\u201A\u201B\u2032\u2035`]/g, "'").trim();
   // A question in AffairsCloud MUST start with a number and a dot (e.g. "1. " or "1.Which"), NOT an option like "1) "!
-  if (/^[1-5]\)\s*/.test(clean)) return false;
-  if (!/^(\d{1,3})\.\s*([A-Za-z\u0900-\u097F\d]|[\u201C\u201D"'])/.test(clean)) return false;
+  if (/^[1-5]\s*[\)\]]/.test(clean)) return false;
 
-  let hasOptions = false;
+  const qStartMatch = clean.match(/^(\d{1,3})\.\s*(.+)/);
+  if (!qStartMatch) return false;
+
+  const qNum = parseInt(qStartMatch[1], 10);
+  // Within the current section, subsequent questions must have a number strictly greater than lastQNum.
+  // This prevents numbered list items inside an explanation (e.g. "1. Item...") from being mistaken as Question 1.
+  if (lastQNum > 0 && qNum <= lastQNum) return false;
+  if (lastQNum > 0 && qNum > lastQNum + 2) return false;
+
+  let hasOption1 = false;
+  let optionsCount = 0;
   let hasAnswer = false;
-  const maxLook = Math.min(startIdx + 25, lines.length);
+  const maxLook = Math.min(startIdx + 30, lines.length);
 
   for (let k = startIdx + 1; k < maxLook; k++) {
     const kClean = lines[k].replace(/\*\*/g, '').trim();
     if (isSectionHeader(kClean)) break;
-    if (/^[1-5][).]\s*/.test(kClean)) {
-      hasOptions = true;
+    if (/^(Aspirant|Affairscloud:|GA Questions|Most Trusted)/i.test(kClean)) break;
+
+    // If another question start is encountered BEFORE finding options/answer, break out.
+    // However, if we are already inside the options block (hasOption1 is true), options 2-5
+    // might be formatted with dots (e.g. "2. Option"), so only break if number > 5.
+    const qMatchAhead = kClean.match(/^(\d{1,3})\.\s*([A-Za-z\u0900-\u097F\d]|[\u201C\u201D"'])/);
+    if (qMatchAhead) {
+      const numAhead = parseInt(qMatchAhead[1], 10);
+      if (!hasOption1 || numAhead > 5) {
+        break;
+      }
     }
+
+    if (/^1\s*[\)\]]\s*/.test(kClean)) {
+      hasOption1 = true;
+      optionsCount++;
+    } else if (hasOption1 && /^[2-5]\s*[\)\]\.]\s*/.test(kClean)) {
+      optionsCount++;
+    }
+
     if (/^(?:Answer|उत्तर|आंसर|Ans)\s*[\u2010-\u2015\u2212\-\:–—]/i.test(kClean)) {
       hasAnswer = true;
       break;
     }
   }
 
-  return hasOptions && hasAnswer;
+  return hasOption1 && optionsCount >= 2 && hasAnswer;
 }
 
 /**
@@ -551,7 +577,7 @@ async function parseDailySource(filePath) {
       qStartMatch = cleanLine.match(/^(\d{1,3})\)\s*(.+)/);
     }
 
-    if (qStartMatch && isRealQuestionAhead(lines, i)) {
+    if (qStartMatch && isRealQuestionAhead(lines, i, lastQNum)) {
       const qNum = parseInt(qStartMatch[1], 10);
       lastQNum = qNum;
       let questionText = qStartMatch[2].trim();
@@ -562,10 +588,10 @@ async function parseDailySource(filePath) {
       while (i < lines.length) {
         const sLine = lines[i];
         const cleanSLine = sLine.replace(/\*\*/g, '').replace(/[\u2018\u2019\u201A\u201B\u2032\u2035`]/g, "'").trim();
-        if (/^[1-5][).]\s*/i.test(cleanSLine)) break; // Reached options
+        if (/^[1-5]\s*[\)\]]\s*/i.test(cleanSLine)) break; // Reached options
         if (/^(?:Answer|उत्तर|आंसर|Ans)\s*[\u2010-\u2015\u2212\-\:–—]/i.test(cleanSLine)) break;
         if (isSectionHeader(cleanSLine)) break;
-        if (statements.length === 0 && isRealQuestionAhead(lines, i)) break;
+        if (statements.length === 0 && isRealQuestionAhead(lines, i, lastQNum)) break;
 
         // If it's a table placeholder or statement A), B)...
         const isStatementItem = sLine.startsWith('__TABLE_PLACEHOLDER_') ||
@@ -585,7 +611,7 @@ async function parseDailySource(filePath) {
           let hasOptionsAhead = false;
           for (let look = i; look < Math.min(i + 15, lines.length); look++) {
             const lookClean = lines[look].replace(/\*\*/g, '').trim();
-            if (/^[1-5][).]\s*/i.test(lookClean)) {
+            if (/^[1-5]\s*[\)\]]\s*/i.test(lookClean)) {
               hasOptionsAhead = true;
               break;
             }
@@ -611,9 +637,11 @@ async function parseDailySource(filePath) {
         const cleanOptLine = optLine.replace(/\*\*/g, '').replace(/[\u2018\u2019\u201A\u201B\u2032\u2035`]/g, "'").trim();
         if (/^(?:Answer|उत्तर|आंसर|Ans)\s*[\u2010-\u2015\u2212\-\:–—]/i.test(cleanOptLine)) break;
         if (isSectionHeader(cleanOptLine)) break;
-        if (options.length >= 4 && isRealQuestionAhead(lines, i)) break;
+        if (options.length >= 4 && isRealQuestionAhead(lines, i, lastQNum)) break;
 
-        const optMatch = cleanOptLine.match(/^([1-5])[).]\s*(.*)/);
+        const optMatch = options.length === 0
+          ? cleanOptLine.match(/^1\s*[\)\]]\s*(.*)/)
+          : cleanOptLine.match(/^([1-5])\s*[\)\]\.]\s*(.*)/);
         if (optMatch) {
           const num = parseInt(optMatch[1], 10);
           expectedOptNum = num + 1;
@@ -668,7 +696,7 @@ async function parseDailySource(filePath) {
         const nextLine = lines[i];
         const cleanNext = nextLine.replace(/\*\*/g, '').replace(/[\u2018\u2019\u201A\u201B\u2032\u2035`]/g, "'").trim();
         if (isSectionHeader(cleanNext)) break;
-        if (isRealQuestionAhead(lines, i)) break;
+        if (isRealQuestionAhead(lines, i, lastQNum)) break;
         if (/^(Aspirant|Affairscloud:|GA Questions|Most Trusted)/i.test(cleanNext)) break;
 
         const tm = cleanNext.match(/(?:Topic(?:\s*Name)?|विषय)\s*[-–:]\s*(.+)/i);

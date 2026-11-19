@@ -33,16 +33,20 @@ function selectDailySideBanners(questionsCount, textResult) {
       if (m) {
         const qNum = parseInt(m[1], 10);
         if (qNum === expectedQ) {
-          const posRatio = (lIdx + 1) / lines.length;
-          const remainingLines = lines.length - (lIdx + 1);
-          if (qNum > 1 && qNum < questionsCount) {
-            if (posRatio <= 0.18 && remainingLines >= 34) {
-              candidates.push({ qNum, page: p + 1, posRatio, remainingLines, tier: 1 });
-            } else if (posRatio <= 0.30 && remainingLines >= 30) {
-              candidates.push({ qNum, page: p + 1, posRatio, remainingLines, tier: 2 });
+          const lookahead = lines.slice(lIdx + 1, lIdx + 20).join('\n');
+          const isRealQ = /1\)/.test(lookahead) || /(?:Answer|उत्तर|आंसर|Ans)/i.test(lookahead);
+          if (isRealQ) {
+            const posRatio = (lIdx + 1) / lines.length;
+            const remainingLines = lines.length - (lIdx + 1);
+            if (qNum > 1 && qNum < questionsCount) {
+              if (posRatio <= 0.18 && remainingLines >= 34) {
+                candidates.push({ qNum, page: p + 1, posRatio, remainingLines, tier: 1 });
+              } else if (posRatio <= 0.30 && remainingLines >= 30) {
+                candidates.push({ qNum, page: p + 1, posRatio, remainingLines, tier: 2 });
+              }
             }
+            expectedQ++;
           }
-          expectedQ++;
         }
       }
     });
