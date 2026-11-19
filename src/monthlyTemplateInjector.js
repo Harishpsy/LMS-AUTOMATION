@@ -251,18 +251,18 @@ function buildQuestionsFragmentXml(questions, isTopicWise = true, isHindi = fals
       }
 
       const qNum = isTopicWise ? (qIndex + 1) : globalNum++;
-      xml += buildQuestionXml(qNum, q.questionText, hyperlinkRegistry);
+      xml += buildQuestionXml(qNum, q.questionText, hyperlinkRegistry, 40, isHindi);
 
       if (q.statements && q.statements.length > 0) {
         for (const st of q.statements) {
-          xml += buildStatementXml(st, tableMap, hyperlinkRegistry);
+          xml += buildStatementXml(st, tableMap, hyperlinkRegistry, false, isHindi);
         }
       }
 
       if (q.options && q.options.length > 0) {
         q.options.forEach((opt, optIdx) => {
           const keepNext = optIdx < q.options.length - 1;
-          xml += buildOptionXml(opt, keepNext);
+          xml += buildOptionXml(opt, keepNext, '', isHindi);
         });
       }
 
@@ -345,7 +345,7 @@ function injectQuestionsIntoTemplate({
   if (dateString) {
     const cleanDate = dateString.replace(/^DAILY\s+(?:CA\s+)?QUIZ[:\s\-]*/i, '').trim();
     const newTitle = isHindi
-      ? `करेंट अफेयर्स Q&amp;A PDF – ${escapeXml(cleanDate)}`
+      ? `Current Affairs Hindi Q&amp;A PDF – ${escapeXml(cleanDate)}`
       : `Current Affairs Q&amp;A PDF – ${escapeXml(cleanDate)}`;
 
     // A. Configure Table of Contents to dynamically index all Topic sections (Heading 2)

@@ -6,12 +6,26 @@
 const fs = require('fs');
 const path = require('path');
 
+function getFontFamily(isHindi = false) {
+  return isHindi ? 'Nirmala UI' : 'Cambria';
+}
+
+function getRPrBase(isHindi = false) {
+  const font = getFontFamily(isHindi);
+  return `<w:rFonts w:ascii="${font}" w:eastAsia="${font}" w:hAnsi="${font}" w:cs="${font}"/><w:sz w:val="23"/><w:szCs w:val="23"/>`;
+}
+
+function getRPrBold(isHindi = false) {
+  const font = getFontFamily(isHindi);
+  return `<w:rFonts w:ascii="${font}" w:eastAsia="${font}" w:hAnsi="${font}" w:cs="${font}"/><w:b/><w:bCs/><w:sz w:val="23"/><w:szCs w:val="23"/>`;
+}
+
 /**
  * Build OpenXML for Answer line (Answer- [bold key])
  */
 function buildAnswerXml(answer, isHindi = false) {
   const prefix = isHindi ? 'उत्तर – ' : 'Answer- ';
-  return `<w:p><w:pPr><w:keepLines/><w:spacing w:before="80" w:after="40" w:line="276" w:lineRule="auto"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr><w:t xml:space="preserve">${prefix}</w:t></w:r><w:r><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr><w:t xml:space="preserve">${escapeXml(answer)}</w:t></w:r></w:p>`;
+  return `<w:p><w:pPr><w:keepLines/><w:spacing w:before="80" w:after="40" w:line="276" w:lineRule="auto"/><w:rPr>${getRPrBase(isHindi)}</w:rPr></w:pPr><w:r><w:rPr>${getRPrBase(isHindi)}</w:rPr><w:t xml:space="preserve">${prefix}</w:t></w:r><w:r><w:rPr>${getRPrBold(isHindi)}</w:rPr><w:t xml:space="preserve">${escapeXml(answer)}</w:t></w:r></w:p>`;
 }
 
 /**
@@ -61,7 +75,7 @@ function buildExplanationXml(explanation, isHindi = false, tableMap = {}, hyperl
     attachLabelToFirst = true;
   } else {
     // If first item is a bullet or table, output Explanation: as its own paragraph with keepNext
-    xml += `<w:p><w:pPr><w:keepNext/><w:spacing w:before="60" w:after="30" w:line="276" w:lineRule="auto"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr><w:t xml:space="preserve">${label} </w:t></w:r>${bannerRunXml || ''}</w:p>`;
+    xml += `<w:p><w:pPr><w:keepNext/><w:spacing w:before="60" w:after="30" w:line="276" w:lineRule="auto"/><w:rPr>${getRPrBold(isHindi)}</w:rPr></w:pPr><w:r><w:rPr>${getRPrBold(isHindi)}</w:rPr><w:t xml:space="preserve">${label} </w:t></w:r>${bannerRunXml || ''}</w:p>`;
   }
 
   for (const line of lines) {
@@ -78,7 +92,7 @@ function buildExplanationXml(explanation, isHindi = false, tableMap = {}, hyperl
     const isAboutHeading = /^(?:\*\*)?(?:About\s+[^:\n]+|[^:\n]+\s+के\s+बारे\s+में)\s*:(?:\*\*)?$/i.test(line);
     if (isAboutHeading) {
       const cleanHeading = line.replace(/\*\*/g, '').trim();
-      xml += `<w:p><w:pPr><w:keepNext/><w:spacing w:before="60" w:after="20" w:line="250" w:lineRule="auto"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:u w:val="single"/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:u w:val="single"/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr><w:t xml:space="preserve">${escapeXml(cleanHeading)}</w:t></w:r></w:p>`;
+      xml += `<w:p><w:pPr><w:keepNext/><w:spacing w:before="60" w:after="20" w:line="250" w:lineRule="auto"/><w:rPr>${getRPrBold(isHindi)}<w:u w:val="single"/></w:rPr></w:pPr><w:r><w:rPr>${getRPrBold(isHindi)}<w:u w:val="single"/></w:rPr><w:t xml:space="preserve">${escapeXml(cleanHeading)}</w:t></w:r></w:p>`;
       continue;
     }
 
@@ -88,7 +102,7 @@ function buildExplanationXml(explanation, isHindi = false, tableMap = {}, hyperl
       const cleanContent = line.replace(/^(?:●|•|▪|▶|∙|-(?!\*))\s*/, '').trim();
 
       // Native Word bullet paragraph – standard 720/360 indent matching original template
-      const pPr = `<w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="2"/></w:numPr><w:spacing w:before="20" w:after="30" w:line="276" w:lineRule="auto"/><w:ind w:left="720" w:hanging="360"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr></w:pPr>`;
+      const pPr = `<w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="2"/></w:numPr><w:spacing w:before="20" w:after="30" w:line="276" w:lineRule="auto"/><w:ind w:left="720" w:hanging="360"/><w:rPr>${getRPrBase(isHindi)}</w:rPr></w:pPr>`;
 
       // Check if there is a bold heading prefix like "**Heading:**", "**Heading: **", or "Heading:"
       // We match up to the first colon, including any closing ** (before or after spaces)
@@ -97,11 +111,11 @@ function buildExplanationXml(explanation, isHindi = false, tableMap = {}, hyperl
       if (prefixMatch) {
         const prefix = prefixMatch[1].replace(/\*\*/g, '').trim();
         const rest = prefixMatch[2].trim();
-        const prefixRun = `<w:r><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr><w:t xml:space="preserve">${escapeXml(prefix)} </w:t></w:r>`;
-        const restRuns = renderRunsWithBold(rest, false, hyperlinkRegistry);
+        const prefixRun = `<w:r><w:rPr>${getRPrBold(isHindi)}</w:rPr><w:t xml:space="preserve">${escapeXml(prefix)} </w:t></w:r>`;
+        const restRuns = renderRunsWithBold(rest, false, hyperlinkRegistry, isHindi);
         xml += `<w:p>${pPr}${prefixRun}${restRuns}</w:p>`;
       } else {
-        const contentRuns = renderRunsWithBold(cleanContent, false, hyperlinkRegistry);
+        const contentRuns = renderRunsWithBold(cleanContent, false, hyperlinkRegistry, isHindi);
         xml += `<w:p>${pPr}${contentRuns}</w:p>`;
       }
     } else {
@@ -112,13 +126,13 @@ function buildExplanationXml(explanation, isHindi = false, tableMap = {}, hyperl
       const lineRuleVal = isKeyValue ? "240" : "276";
 
       // Normal paragraph
-      const runs = renderRunsWithBold(line, false, hyperlinkRegistry);
+      const runs = renderRunsWithBold(line, false, hyperlinkRegistry, isHindi);
       if (attachLabelToFirst) {
-        const labelRun = `<w:r><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr><w:t xml:space="preserve">${label}</w:t><w:br/></w:r>`;
-        xml += `<w:p><w:pPr><w:spacing w:before="60" w:after="${spacingAfter}" w:line="${lineRuleVal}" w:lineRule="auto"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr></w:pPr>${labelRun}${runs}${bannerRunXml || ''}</w:p>`;
+        const labelRun = `<w:r><w:rPr>${getRPrBold(isHindi)}</w:rPr><w:t xml:space="preserve">${label}</w:t><w:br/></w:r>`;
+        xml += `<w:p><w:pPr><w:spacing w:before="60" w:after="${spacingAfter}" w:line="${lineRuleVal}" w:lineRule="auto"/><w:rPr>${getRPrBase(isHindi)}</w:rPr></w:pPr>${labelRun}${runs}${bannerRunXml || ''}</w:p>`;
         attachLabelToFirst = false;
       } else {
-        xml += `<w:p><w:pPr><w:spacing w:before="${spacingBefore}" w:after="${spacingAfter}" w:line="${lineRuleVal}" w:lineRule="auto"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr></w:pPr>${runs}</w:p>`;
+        xml += `<w:p><w:pPr><w:spacing w:before="${spacingBefore}" w:after="${spacingAfter}" w:line="${lineRuleVal}" w:lineRule="auto"/><w:rPr>${getRPrBase(isHindi)}</w:rPr></w:pPr>${runs}</w:p>`;
       }
     }
   }
@@ -130,19 +144,19 @@ function buildExplanationXml(explanation, isHindi = false, tableMap = {}, hyperl
  * Build OpenXML for an Option paragraph (1), 2), 3)...
  * Supports attaching a floating promotional banner run directly into Choice 1.
  */
-function buildOptionXml(option, keepNext = false, bannerRunXml = '') {
+function buildOptionXml(option, keepNext = false, bannerRunXml = '', isHindi = false) {
   const pPrKeep = keepNext ? '<w:keepNext/><w:keepLines/>' : '<w:keepLines/>';
   const banner = bannerRunXml || '';
-  return `<w:p><w:pPr>${pPrKeep}<w:spacing w:before="20" w:after="20" w:line="276" w:lineRule="auto"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr><w:t xml:space="preserve">${escapeXml(option)}</w:t></w:r>${banner}</w:p>`;
+  return `<w:p><w:pPr>${pPrKeep}<w:spacing w:before="20" w:after="20" w:line="276" w:lineRule="auto"/><w:rPr>${getRPrBase(isHindi)}</w:rPr></w:pPr><w:r><w:rPr>${getRPrBase(isHindi)}</w:rPr><w:t xml:space="preserve">${escapeXml(option)}</w:t></w:r>${banner}</w:p>`;
 }
 
 /**
- * Build OpenXML for a Question paragraph (Bold Cambria 11.5pt)
+ * Build OpenXML for a Question paragraph (Bold Cambria/Nirmala UI 11.5pt)
  * spaceBefore (twips) = gap above the question. The daily injector uses it instead of blank spacer paragraphs.
  */
-function buildQuestionXml(num, text, hyperlinkRegistry = null, spaceBefore = 40) {
-  const content = renderRunsWithBold(text, true, hyperlinkRegistry);
-  return `<w:p><w:pPr><w:keepNext/><w:keepLines/><w:spacing w:before="${spaceBefore}" w:after="40" w:line="276" w:lineRule="auto"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr><w:t xml:space="preserve">${num}.  </w:t></w:r>${content}</w:p>`;
+function buildQuestionXml(num, text, hyperlinkRegistry = null, spaceBefore = 40, isHindi = false) {
+  const content = renderRunsWithBold(text, true, hyperlinkRegistry, isHindi);
+  return `<w:p><w:pPr><w:keepNext/><w:keepLines/><w:spacing w:before="${spaceBefore}" w:after="40" w:line="276" w:lineRule="auto"/><w:rPr>${getRPrBold(isHindi)}</w:rPr></w:pPr><w:r><w:rPr>${getRPrBold(isHindi)}</w:rPr><w:t xml:space="preserve">${num}.  </w:t></w:r>${content}</w:p>`;
 }
 
 /**
@@ -155,15 +169,15 @@ function buildSectionHeaderXml(title, spaceBefore = 360, spaceAfter = 160) {
 /**
  * Build OpenXML for a Statement paragraph (A, B, C...) or embedded table
  */
-function buildStatementXml(statement, tableMap = {}, hyperlinkRegistry = null, keepNext = false) {
+function buildStatementXml(statement, tableMap = {}, hyperlinkRegistry = null, keepNext = false, isHindi = false) {
   if (!statement) return '';
   const trimmed = statement.trim();
   if (trimmed.startsWith('__TABLE_PLACEHOLDER_') && tableMap && tableMap[trimmed]) {
     return tableMap[trimmed];
   }
-  const runs = renderRunsWithBold(statement, true, hyperlinkRegistry);
+  const runs = renderRunsWithBold(statement, true, hyperlinkRegistry, isHindi);
   const pPrKeep = keepNext ? '<w:keepNext/><w:keepLines/>' : '<w:keepLines/>';
-  return `<w:p><w:pPr>${pPrKeep}<w:spacing w:before="30" w:after="30" w:line="276" w:lineRule="auto"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr></w:pPr>${runs}</w:p>`;
+  return `<w:p><w:pPr>${pPrKeep}<w:spacing w:before="30" w:after="30" w:line="276" w:lineRule="auto"/><w:rPr>${getRPrBold(isHindi)}</w:rPr></w:pPr>${runs}</w:p>`;
 }
 
 function escapeXml(str) {
@@ -228,10 +242,11 @@ function makeUniqueBannerXml(bannerXml, instanceIndex) {
  * Render runs of text within a paragraph, parsing **bold** markdown tokens into bold <w:r> runs
  * and preserving markdown [text](url) or bare URLs as genuine Word <w:hyperlink> elements
  */
-function renderRunsWithBold(text, defaultBold = false, hyperlinkRegistry = null) {
+function renderRunsWithBold(text, defaultBold = false, hyperlinkRegistry = null, isHindi = false) {
   if (!text) return '';
-  const rPrBase = `<w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:sz w:val="23"/><w:szCs w:val="23"/>`;
-  const rPrBold = `<w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:sz w:val="23"/><w:szCs w:val="23"/>`;
+  const font = getFontFamily(isHindi);
+  const rPrBase = getRPrBase(isHindi);
+  const rPrBold = getRPrBold(isHindi);
 
   function renderChunkWithLinks(chunk, isBold) {
     if (!chunk) return '';
@@ -254,7 +269,7 @@ function renderRunsWithBold(text, defaultBold = false, hyperlinkRegistry = null)
       const rId = hyperlinkRegistry ? hyperlinkRegistry.add(linkUrl) : '';
 
       if (rId) {
-        out += `<w:hyperlink r:id="${rId}" w:history="1"><w:r><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/>${isBold ? '<w:b/><w:bCs/>' : ''}<w:color w:val="0563C1"/><w:u w:val="single"/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr><w:t xml:space="preserve">${escapeXml(linkText)}</w:t></w:r></w:hyperlink>`;
+        out += `<w:hyperlink r:id="${rId}" w:history="1"><w:r><w:rPr><w:rFonts w:ascii="${font}" w:eastAsia="${font}" w:hAnsi="${font}" w:cs="${font}"/>${isBold ? '<w:b/><w:bCs/>' : ''}<w:color w:val="0563C1"/><w:u w:val="single"/><w:sz w:val="23"/><w:szCs w:val="23"/></w:rPr><w:t xml:space="preserve">${escapeXml(linkText)}</w:t></w:r></w:hyperlink>`;
       } else {
         out += `<w:r><w:rPr>${rPr}</w:rPr><w:t xml:space="preserve">${escapeXml(linkText)}</w:t></w:r>`;
       }

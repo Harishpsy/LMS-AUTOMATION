@@ -105,14 +105,14 @@ function buildQuestionsFragmentXml(questions, isTopicWise = false, isHindi = fal
     }
 
     // First question sits right under its topic header (header's own spacing-after); the rest get the standard gap
-    xml += buildQuestionXml(qNum, q.questionText, hyperlinkRegistry, isNewSection ? 0 : QUESTION_GAP);
+    xml += buildQuestionXml(qNum, q.questionText, hyperlinkRegistry, isNewSection ? 0 : QUESTION_GAP, isHindi);
 
     if (q.statements && q.statements.length > 0) {
       for (let stIdx = 0; stIdx < q.statements.length; stIdx++) {
         const st = q.statements[stIdx];
         // The last statement before choices has keepNext = true so it never gets orphaned from Choice 1
         const isLastStatement = stIdx === q.statements.length - 1;
-        xml += buildStatementXml(st, tableMap, hyperlinkRegistry, isLastStatement);
+        xml += buildStatementXml(st, tableMap, hyperlinkRegistry, isLastStatement, isHindi);
       }
     }
 
@@ -132,7 +132,7 @@ function buildQuestionsFragmentXml(questions, isTopicWise = false, isHindi = fal
       q.options.forEach((opt, optIdx) => {
         // Choice 1 receives the banner run if assigned to this question
         const bannerForOpt = (optIdx === 0 && bannerRunForThisQ) ? bannerRunForThisQ : '';
-        xml += buildOptionXml(opt, false, bannerForOpt);
+        xml += buildOptionXml(opt, false, bannerForOpt, isHindi);
       });
       // Once consumed by Choice 1, clear so explanation does not duplicate it
       if (bannerRunForThisQ) bannerRunForThisQ = '';
@@ -204,7 +204,7 @@ function injectQuestionsIntoTemplate({
   if (dateString) {
     const cleanDate = dateString.replace(/^DAILY\s+(?:CA\s+)?QUIZ[:\s\-]*/i, '').trim();
     const newTitle = isHindi
-      ? `करेंट अफेयर्स Q&amp;A PDF – ${escapeXml(cleanDate)}`
+      ? `Current Affairs Hindi Q&amp;A PDF – ${escapeXml(cleanDate)}`
       : `Current Affairs Q&amp;A PDF – ${escapeXml(cleanDate)}`;
 
     // A. Configure Table of Contents to dynamically index all Topic sections (Heading 2)
@@ -313,12 +313,11 @@ function injectQuestionsIntoTemplate({
 
   const newQuestionsXml = buildQuestionsFragmentXml(questions, isTopicWise, isHindi, tableMap, sideBanners, hyperlinkRegistry, bannerAssignments) + (includeBottomBanner && bottomBanner ? bottomBanner : '');
 
-  // 7. Aspirant Queries: ensure heading stays with its content (<w:keepNext/>),
-  // but allow it to flow naturally onto the page right after Question 30 when space is available,
-  // completely eliminating blank space gaps at the end of the quiz.
+  // 7. Ensure Aspirant Queries paragraph starts at the top of its own dedicated page
+  // using <w:pageBreakBefore/> on the paragraph itself (Aspirant Queries must always be on a separate page).
   const aspirantPart = xml.slice(endOffset).replace(
     /^(\s*<w:p[^>]*><w:pPr>)/,
-    '$1<w:keepNext/>'
+    '$1<w:pageBreakBefore/>'
   );
 
   // Replace ONLY the questions portion between startOffset and endOffset!

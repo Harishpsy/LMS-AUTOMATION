@@ -21,6 +21,70 @@ const {
   OUTPUT_DIR
 } = require('./quizParser');
 
+function selectDailySideBanners(questionsCount, textResult) {
+  let expectedQ = 1;
+  const candidates = [];
+  for (let p = 2; p < textResult.pages.length; p++) {
+    const pageText = textResult.pages[p].text;
+    if (pageText.includes('Aspirant Queries')) break;
+    const lines = pageText.split('\n').map(l => l.trim()).filter(Boolean);
+    lines.forEach((l, lIdx) => {
+      const m = l.match(/^(\d{1,2})\.\s*/);
+      if (m) {
+        const qNum = parseInt(m[1], 10);
+        if (qNum === expectedQ) {
+          const posRatio = (lIdx + 1) / lines.length;
+          const remainingLines = lines.length - (lIdx + 1);
+          if (qNum > 1 && qNum < questionsCount) {
+            if (posRatio <= 0.18 && remainingLines >= 34) {
+              candidates.push({ qNum, page: p + 1, posRatio, remainingLines, tier: 1 });
+            } else if (posRatio <= 0.30 && remainingLines >= 30) {
+              candidates.push({ qNum, page: p + 1, posRatio, remainingLines, tier: 2 });
+            }
+          }
+          expectedQ++;
+        }
+      }
+    });
+  }
+
+  const midBoundary = Math.floor(questionsCount * 0.55);
+  const midTier1 = candidates.filter(c => c.qNum >= 3 && c.qNum <= midBoundary && c.tier === 1);
+  const lateTier1 = candidates.filter(c => c.qNum > midBoundary && c.qNum < questionsCount && c.tier === 1);
+  const midTier2 = candidates.filter(c => c.qNum >= 3 && c.qNum <= midBoundary && c.tier === 2);
+  const lateTier2 = candidates.filter(c => c.qNum > midBoundary && c.qNum < questionsCount && c.tier === 2);
+
+  let midPick = midTier1.length > 0
+    ? midTier1[Math.floor(Math.random() * midTier1.length)].qNum
+    : (midTier2.length > 0 ? midTier2[Math.floor(Math.random() * midTier2.length)].qNum : null);
+
+  let latePick = lateTier1.length > 0
+    ? lateTier1[Math.floor(Math.random() * lateTier1.length)].qNum
+    : (lateTier2.length > 0 ? lateTier2[Math.floor(Math.random() * lateTier2.length)].qNum : null);
+
+  if (!latePick && midPick) {
+    const midPage = candidates.find(c => c.qNum === midPick)?.page || 0;
+    const alt = candidates.find(c => c.qNum !== midPick && Math.abs(c.page - midPage) >= 2);
+    if (alt) latePick = alt.qNum;
+  }
+  if (!midPick && latePick) {
+    const latePage = candidates.find(c => c.qNum === latePick)?.page || 0;
+    const alt = candidates.find(c => c.qNum !== latePick && Math.abs(c.page - latePage) >= 2);
+    if (alt) midPick = alt.qNum;
+  }
+  if (midPick && latePick && midPick > latePick) {
+    const temp = midPick;
+    midPick = latePick;
+    latePick = temp;
+  }
+
+  const bannerAssignments = { 1: 0 };
+  if (midPick) bannerAssignments[midPick] = 1;
+  if (latePick) bannerAssignments[latePick] = 2;
+
+  return { midPick, latePick, bannerAssignments };
+}
+
 /**
  * Generate Daily Quiz (English or Hindi based on source document detection)
  */
@@ -65,7 +129,7 @@ async function generateDailyQuiz(sourceFilePath, onLog) {
   } catch (err) {
     log({ type: 'warn', message: `⚠️ Fallback to standard docx builder: ${err.message}` });
     const title = isHindi
-      ? `करेंट अफेयर्स Q&A – ${rawParsed.dateString}`
+      ? `Current Affairs Hindi Q&A – ${rawParsed.dateString}`
       : `Current Affairs Q&A – ${rawParsed.dateString}`;
 
     await buildDocxFile({
@@ -92,61 +156,11 @@ async function generateDailyQuiz(sourceFilePath, onLog) {
       await parser.load();
       const textResult = await parser.getText();
 
-      // 1. Sequentially identify questions and check their page position
-      let expectedQ = 1;
-      const safeCandidates = [];
-      for (let p = 3; p < textResult.pages.length; p++) {
-        const pageText = textResult.pages[p].text;
-        if (pageText.includes('Aspirant Queries')) break;
-        const lines = pageText.split('\n').map(l => l.trim()).filter(Boolean);
-        lines.forEach((l, lIdx) => {
-          const m = l.match(/^(\d{1,2})\.\s*/);
-          if (m) {
-            const qNum = parseInt(m[1], 10);
-            if (qNum === expectedQ) {
-              const posRatio = (lIdx + 1) / lines.length;
-              const remainingLines = lines.length - (lIdx + 1);
-              // Safe candidate: starts in top 28% of page with at least 26 lines remaining
-              if (qNum > 1 && qNum < questions.length && (posRatio <= 0.28 || remainingLines >= 26)) {
-                safeCandidates.push({ qNum, page: p + 1, posRatio, remainingLines });
-              }
-              expectedQ++;
-            }
-          }
-        });
-      }
+      // 1. Identify optimal question candidates and assign Banner 1 & Banner 2
+      const { midPick, latePick, bannerAssignments } = selectDailySideBanners(questions.length, textResult);
 
-      // 2. Select candidates for Banner 1 (mid-quiz) and Banner 2 (late-quiz)
-      const midBoundary = Math.floor(questions.length * 0.55);
-      const midCandidates = safeCandidates.filter(c => c.qNum >= 3 && c.qNum <= midBoundary);
-      const lateCandidates = safeCandidates.filter(c => c.qNum > midBoundary && c.qNum < questions.length);
-
-      const midPick = midCandidates.length > 0
-        ? midCandidates[Math.floor(Math.random() * midCandidates.length)].qNum
-        : null;
-      const latePick = lateCandidates.length > 0
-        ? lateCandidates[Math.floor(Math.random() * lateCandidates.length)].qNum
-        : null;
-
-      const bannerAssignments = { 1: 0 };
-      if (midPick) bannerAssignments[midPick] = 1;
-      if (latePick) bannerAssignments[latePick] = 2;
-
-      // 3. Inspect bottom banner clearance before Aspirant Queries
-      const aspIdx = textResult.pages.findIndex(p => p.text.includes('Aspirant Queries'));
-      let includeBottomBanner = true;
-      if (aspIdx > 0) {
-        const pageBeforeAsp = textResult.pages[aspIdx - 1];
-        if (pageBeforeAsp.text.trim().length < 250) {
-          includeBottomBanner = false;
-          log({ type: 'info', message: 'ℹ️ Insufficient space for bottom banner; skipping banner to eliminate extra blank page.' });
-        } else {
-          log({ type: 'info', message: '✅ Bottom banner embedded cleanly in available space.' });
-        }
-      }
-
-      // 4. Pass 2: Re-inject with layout-verified banner assignments if mid/late banner or bottom banner adjusted
-      if (midPick || latePick || !includeBottomBanner) {
+      // 4. Pass 2: Re-inject with layout-verified banner assignments (bottom promotional banner always included)
+      if (midPick || latePick) {
         log({
           type: 'info',
           message: `🎯 Applying safe banner placement: ${Object.entries(bannerAssignments).map(([q, b]) => `Banner ${b} on Q${q}`).join(', ')}`
@@ -159,10 +173,11 @@ async function generateDailyQuiz(sourceFilePath, onLog) {
           isTopicWise: false,
           isHindi,
           tableMap: rawParsed.tableMap || {},
-          includeBottomBanner,
+          includeBottomBanner: true,
           bannerAssignments
         });
         await convertDocxToPdf(docxPath, pdfPath);
+
         log({ type: 'success', message: `✅ Daily PDF verified and updated with safe banner placement: ${path.basename(pdfPath)}` });
       }
     } catch (auditErr) {
@@ -238,53 +253,9 @@ async function generateFromParsedQuiz(quizData, onLog) {
       await parser.load();
       const textResult = await parser.getText();
 
-      let expectedQ = 1;
-      const safeCandidates = [];
-      for (let p = 3; p < textResult.pages.length; p++) {
-        const pageText = textResult.pages[p].text;
-        if (pageText.includes('Aspirant Queries')) break;
-        const lines = pageText.split('\n').map(l => l.trim()).filter(Boolean);
-        lines.forEach((l, lIdx) => {
-          const m = l.match(/^(\d{1,2})\.\s*/);
-          if (m) {
-            const qNum = parseInt(m[1], 10);
-            if (qNum === expectedQ) {
-              const posRatio = (lIdx + 1) / lines.length;
-              const remainingLines = lines.length - (lIdx + 1);
-              if (qNum > 1 && qNum < questions.length && (posRatio <= 0.28 || remainingLines >= 26)) {
-                safeCandidates.push({ qNum, page: p + 1, posRatio, remainingLines });
-              }
-              expectedQ++;
-            }
-          }
-        });
-      }
+      const { midPick, latePick, bannerAssignments } = selectDailySideBanners(questions.length, textResult);
 
-      const midBoundary = Math.floor(questions.length * 0.55);
-      const midCandidates = safeCandidates.filter(c => c.qNum >= 3 && c.qNum <= midBoundary);
-      const lateCandidates = safeCandidates.filter(c => c.qNum > midBoundary && c.qNum < questions.length);
-
-      const midPick = midCandidates.length > 0
-        ? midCandidates[Math.floor(Math.random() * midCandidates.length)].qNum
-        : null;
-      const latePick = lateCandidates.length > 0
-        ? lateCandidates[Math.floor(Math.random() * lateCandidates.length)].qNum
-        : null;
-
-      const bannerAssignments = { 1: 0 };
-      if (midPick) bannerAssignments[midPick] = 1;
-      if (latePick) bannerAssignments[latePick] = 2;
-
-      const aspIdx = textResult.pages.findIndex(p => p.text.includes('Aspirant Queries'));
-      let includeBottomBanner = true;
-      if (aspIdx > 0) {
-        const pageBeforeAsp = textResult.pages[aspIdx - 1];
-        if (pageBeforeAsp.text.trim().length < 250) {
-          includeBottomBanner = false;
-        }
-      }
-
-      if (midPick || latePick || !includeBottomBanner) {
+      if (midPick || latePick) {
         injectQuestionsIntoTemplate({
           templatePath: DEFAULT_DAILY_TEMPLATE_PATH,
           questions,
@@ -293,7 +264,7 @@ async function generateFromParsedQuiz(quizData, onLog) {
           isTopicWise: false,
           isHindi,
           tableMap: quizData.tableMap || {},
-          includeBottomBanner,
+          includeBottomBanner: true,
           bannerAssignments
         });
         await convertDocxToPdf(docxPath, pdfPath);

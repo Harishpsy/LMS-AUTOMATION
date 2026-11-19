@@ -117,7 +117,7 @@ function buildTransparentOverlayHtml({ questions, dateString, isHindi, tableMap 
   const qrUri = getQrCodeDataUri();
   const cleanDate = String(dateString || '').replace(/^DAILY\s+(?:CA\s+)?QUIZ[:\s\-]*/i, '').trim();
   const mainTitleText = isHindi
-    ? `करेंट अफेयर्स Q&A PDF – ${esc(cleanDate)}`
+    ? `Current Affairs Hindi Q&A PDF – ${esc(cleanDate)}`
     : `Current Affairs Q&A PDF – ${esc(cleanDate)}`;
 
   // 1. Build Quiz Questions HTML (Sequential 1..N order matching uploaded source doc)
