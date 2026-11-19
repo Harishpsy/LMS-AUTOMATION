@@ -19,6 +19,7 @@ const {
   getMonthFolder,
   OUTPUT_DIR
 } = require('./quizParser');
+const { verifyQuizIntegrity } = require('./questionVerifier');
 
 /**
  * Generate Monthly Topic-Wise Quiz (creates English monthly from English files, Hindi monthly from Hindi files)
@@ -49,6 +50,16 @@ async function generateMonthlyQuiz(sourceFolderPath, monthLabel, onLog) {
         Object.assign(mergedTableMap, parsed.tableMap);
       }
       const std = standardizeQuestions(parsed.questions, parsed.dateString, 'monthly');
+
+      // 1-to-1 Ground-Truth Verification for each source document
+      const auditReport = verifyQuizIntegrity(f, std, log);
+      if (!auditReport.passed) {
+        log({
+          type: 'warn',
+          message: `  ⚠️ Integrity Warning in ${path.basename(f)}: ${auditReport.anomalies.length} question anomalies detected!`
+        });
+      }
+
       const sampleText = std.slice(0, 5).map(q => `${q.questionText} ${q.explanation}`).join(' ');
       const lang = detectContentLanguage(std, sampleText);
 
@@ -63,6 +74,12 @@ async function generateMonthlyQuiz(sourceFolderPath, monthLabel, onLog) {
       log({ type: 'warn', message: `  ⚠️ Skipped ${path.basename(f)}: ${e.message}` });
     }
   }
+
+  const totalVerified = englishQuestions.length + hindiQuestions.length;
+  log({
+    type: 'success',
+    message: `🎯 [Monthly Verification Agent] Compilation Verified: ${files.length} source file(s) processed, ${totalVerified} total questions intact (${englishQuestions.length} English, ${hindiQuestions.length} Hindi).`
+  });
 
   const generatedFiles = [];
   const monthFolder = getMonthFolder(monthLabel);

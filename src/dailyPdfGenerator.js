@@ -20,6 +20,7 @@ const {
   getDateFolder,
   OUTPUT_DIR
 } = require('./quizParser');
+const { verifyQuizIntegrity } = require('./questionVerifier');
 
 function selectDailySideBanners(questionsCount, textResult) {
   let expectedQ = 1;
@@ -99,6 +100,15 @@ async function generateDailyQuiz(sourceFilePath, onLog) {
   const rawParsed = await parseDailySource(sourceFilePath);
   const questions = standardizeQuestions(rawParsed.questions, rawParsed.dateString, 'daily');
   log({ type: 'info', message: `✅ Parsed ${questions.length} questions from ${rawParsed.dateString}` });
+
+  // 1-to-1 Ground-Truth Verification against original document
+  const auditReport = verifyQuizIntegrity(sourceFilePath, questions, log);
+  if (!auditReport.passed) {
+    log({
+      type: 'warn',
+      message: `⚠️ Integrity Alert: ${auditReport.anomalies.length} question anomalies detected against original source document!`
+    });
+  }
 
   // Detect language of source document
   const sampleText = questions.slice(0, 5).map(q => `${q.questionText} ${q.explanation}`).join(' ');
