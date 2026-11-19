@@ -32,6 +32,42 @@ function formatSec(s) {
   return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
 }
 
+function setWorkerState(state, speech, integrityText, integrityColor) {
+  const ws = document.querySelector('.agent-workstation');
+  const light = document.getElementById('agentStatusLight');
+  const pill = document.getElementById('agentStatePill');
+  const bubble = document.getElementById('agentSpeechBubble');
+  const intVal = document.getElementById('agentIntegrityVal');
+  if (ws) {
+    if (state === 'working') ws.classList.add('active');
+    else ws.classList.remove('active');
+  }
+  if (light) {
+    if (state === 'working') {
+      light.style.backgroundColor = '#f59e0b';
+      light.style.boxShadow = '0 0 10px #f59e0b';
+    } else if (state === 'verified') {
+      light.style.backgroundColor = '#10b981';
+      light.style.boxShadow = '0 0 10px #10b981';
+    } else if (state === 'error') {
+      light.style.backgroundColor = '#ef4444';
+      light.style.boxShadow = '0 0 10px #ef4444';
+    } else {
+      light.style.backgroundColor = '#3b82f6';
+      light.style.boxShadow = '0 0 8px #3b82f6';
+    }
+  }
+  if (pill) {
+    pill.className = `agent-state-pill ${state}`;
+    pill.textContent = state.toUpperCase();
+  }
+  if (bubble && speech) bubble.textContent = `"${speech}"`;
+  if (intVal && integrityText) {
+    intVal.textContent = integrityText;
+    if (integrityColor) intVal.style.color = integrityColor;
+  }
+}
+
 /**
  * Initialize Uploader event listeners
  * @param {object} options
@@ -79,6 +115,7 @@ export function initUploader({ getParsedData } = {}) {
     btnStartUpload.disabled = true;
     if (btnParse) btnParse.disabled = true;
     if (btnParseUpload) btnParseUpload.disabled = true;
+    setWorkerState('working', '⚡ Uploading and injecting questions into LMS portal...', 'Uploading...', '#fbbf24');
 
     if (progressContainer) progressContainer.classList.remove('hidden');
     if (progressBar) {
@@ -119,8 +156,8 @@ export function initUploader({ getParsedData } = {}) {
         const data = JSON.parse(e.data);
         if (data.type === 'log') {
           appendLog(data.message, data.level || 'info');
-        } else if (data.type === 'pdf-gen-log') {
-          appendLog(data.message, data.type === 'pdf-gen-error' ? 'error' : (data.level || 'info'));
+        } else if (data.type === 'pdf-gen-log' || data.type === 'info' || data.type === 'success' || data.type === 'warn') {
+          appendLog(data.message, data.type === 'pdf-gen-error' ? 'error' : (data.level || (data.type !== 'pdf-gen-log' ? data.type : 'info')));
         } else if (data.type === 'pdf-gen-complete') {
           appendLog(`🎉 ${data.mode === 'monthly' ? 'Monthly Compilation' : 'Daily Quiz'} generation complete!`, 'success');
           data.files?.forEach(f => appendLog(`  📄 Created: ${f.name}`, 'success'));
@@ -144,9 +181,11 @@ export function initUploader({ getParsedData } = {}) {
           if (data.avgPerQ && progressSpeedVal) {
             progressSpeedVal.textContent = `${data.avgPerQ} s/q`;
           }
+          setWorkerState('working', `🚀 Uploading question ${data.current} of ${data.total} to LMS...`, `${data.percent}%`, '#60a5fa');
         } else if (data.type === 'complete') {
           uploadFinished = true;
           clearInterval(timerInterval);
+          setWorkerState('verified', '🎉 All questions uploaded and published to LMS successfully!', '100% Published', '#10b981');
 
           const totalSec = data.totalDurationSec || Math.max(1, Math.round((Date.now() - uploadStartTime) / 1000));
           const formattedTotal = data.formattedDuration || (totalSec >= 60 ? `${Math.floor(totalSec / 60)}m ${totalSec % 60}s` : `${totalSec}s`);
@@ -171,6 +210,7 @@ export function initUploader({ getParsedData } = {}) {
         } else if (data.type === 'error') {
           uploadFinished = true;
           clearInterval(timerInterval);
+          setWorkerState('error', `❌ Upload Stopped: ${data.message}`, 'Failed', '#ef4444');
           if (uploadEtaBadge) uploadEtaBadge.classList.add('hidden');
           if (progressTotalTimeVal) progressTotalTimeVal.textContent = 'Failed';
           showError('Automation Upload Failed', data.message, `Course ID: ${courseId}\nTarget Quiz: ${selectedQuizTarget}`);

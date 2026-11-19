@@ -596,12 +596,15 @@ app.post('/api/pdf-gen/generate-daily', async (req, res) => {
       delete require.cache[require.resolve('./dailyPdfGenerator')];
       delete require.cache[require.resolve('./dailyTemplateInjector')];
       delete require.cache[require.resolve('./quizParser')];
+      delete require.cache[require.resolve('./questionVerifier')];
       delete require.cache[require.resolve('./docxXmlHelpers')];
     } catch {}
     const { generateDailyQuiz } = require('./dailyPdfGenerator');
 
     generateDailyQuiz(resolvedPath, (event) => {
-      broadcastEvent({ type: 'pdf-gen-log', ...event });
+      const message = typeof event === 'string' ? event : (event.message || JSON.stringify(event));
+      const level = (typeof event === 'object' && event.type && event.type !== 'pdf-gen-log') ? event.type : (event.level || 'info');
+      broadcastEvent({ type: 'pdf-gen-log', message, level });
     }).then((generatedFiles) => {
       const docxFiles = generatedFiles.filter(f => typeof f === 'string' && f.endsWith('.docx'));
       const filesMeta = docxFiles.map(f => getGeneratedFileMeta(f));
@@ -715,8 +718,19 @@ app.post('/api/pdf-gen/generate-monthly', async (req, res) => {
 
     broadcastEvent({ type: 'pdf-gen-log', message: `🚀 Starting Monthly Topic-Wise Generation for: ${label}` });
 
+    try {
+      delete require.cache[require.resolve('./monthlyPdfGenerator')];
+      delete require.cache[require.resolve('./monthlyTemplateInjector')];
+      delete require.cache[require.resolve('./quizParser')];
+      delete require.cache[require.resolve('./questionVerifier')];
+      delete require.cache[require.resolve('./docxXmlHelpers')];
+    } catch {}
+    const { generateMonthlyQuiz } = require('./monthlyPdfGenerator');
+
     generateMonthlyQuiz(target, label, (event) => {
-      broadcastEvent({ type: 'pdf-gen-log', ...event });
+      const message = typeof event === 'string' ? event : (event.message || JSON.stringify(event));
+      const level = (typeof event === 'object' && event.type && event.type !== 'pdf-gen-log') ? event.type : (event.level || 'info');
+      broadcastEvent({ type: 'pdf-gen-log', message, level });
     }).then((generatedFiles) => {
       const docxFiles = generatedFiles.filter(f => typeof f === 'string' && f.endsWith('.docx'));
       const filesMeta = docxFiles.map(f => getGeneratedFileMeta(f));
@@ -755,7 +769,9 @@ app.post('/api/pdf-gen/generate-from-parsed', async (req, res) => {
     broadcastEvent({ type: 'pdf-gen-log', message: `🚀 Generating PDF & DOCX for parsed quiz (${quizData.questions.length} questions)...` });
 
     generateFromParsedQuiz(quizData, (event) => {
-      broadcastEvent({ type: 'pdf-gen-log', ...event });
+      const message = typeof event === 'string' ? event : (event.message || JSON.stringify(event));
+      const level = (typeof event === 'object' && event.type && event.type !== 'pdf-gen-log') ? event.type : (event.level || 'info');
+      broadcastEvent({ type: 'pdf-gen-log', message, level });
     }).then((generatedFiles) => {
       const docxFiles = generatedFiles.filter(f => typeof f === 'string' && f.endsWith('.docx'));
       const filesMeta = docxFiles.map(f => getGeneratedFileMeta(f));

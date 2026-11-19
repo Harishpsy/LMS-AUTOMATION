@@ -673,6 +673,7 @@ input:checked + .slider:before {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   overflow: hidden;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
 }
 
 .terminal-header {
@@ -696,6 +697,10 @@ input:checked + .slider:before {
   background-color: #334155;
 }
 
+.terminal-dots span:nth-child(1) { background-color: #ef4444; }
+.terminal-dots span:nth-child(2) { background-color: #f59e0b; }
+.terminal-dots span:nth-child(3) { background-color: #10b981; }
+
 .terminal-title {
   font-size: 12px;
   font-weight: 600;
@@ -704,9 +709,231 @@ input:checked + .slider:before {
   letter-spacing: 0.05em;
 }
 
+/* ─────────────────────────────────────────────────────────────
+   Animated AI Agent Worker Workstation
+   ───────────────────────────────────────────────────────────── */
+.agent-workstation {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 18px;
+  background: linear-gradient(90deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.7));
+  border-bottom: 1px solid var(--border-color);
+  position: relative;
+  overflow: hidden;
+}
+
+.agent-canvas-box {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.agent-details-column {
+  flex: 1;
+  min-width: 0;
+}
+
+.agent-header-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.agent-status-light {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #3b82f6;
+  box-shadow: 0 0 8px #3b82f6;
+  display: inline-block;
+  animation: pulseLight 1.8s ease-in-out infinite;
+  transition: all 0.3s ease;
+}
+
+@keyframes pulseLight {
+  0%, 100% { opacity: 0.6; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+.agent-name-tag {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-main);
+  letter-spacing: 0.02em;
+}
+
+.agent-state-pill {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: all 0.3s ease;
+}
+
+.agent-state-pill.working {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.agent-state-pill.verified {
+  background: rgba(16, 185, 129, 0.18);
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+.agent-speech-bubble {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: 'JetBrains Mono', monospace;
+  transition: color 0.3s ease;
+}
+
+.agent-stats-column {
+  display: flex;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.agent-stat-box {
+  display: flex;
+  flex-direction: column;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  min-width: 90px;
+  text-align: right;
+}
+
+.stat-title {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.stat-value {
+  font-size: 12px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+@media (max-width: 768px) {
+  .agent-workstation {
+    flex-wrap: wrap;
+    padding: 10px 14px;
+    gap: 10px;
+  }
+  .agent-stats-column {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Animated Worker Person & Desk Keyframes
+   ───────────────────────────────────────────────────────────── */
+@keyframes handTypingLeft {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3.5px) translateX(-0.5px); }
+}
+@keyframes handTypingRight {
+  0%, 100% { transform: translateY(-3.5px) translateX(0.5px); }
+  50% { transform: translateY(0); }
+}
+.arm-left, .hand-left {
+  animation: handTypingLeft 0.28s ease-in-out infinite;
+}
+.arm-right, .hand-right {
+  animation: handTypingRight 0.28s ease-in-out infinite;
+}
+
+.agent-workstation.active .arm-left,
+.agent-workstation.active .hand-left {
+  animation-duration: 0.16s;
+}
+.agent-workstation.active .arm-right,
+.agent-workstation.active .hand-right {
+  animation-duration: 0.16s;
+}
+.agent-workstation.active .scanner-laser {
+  animation-duration: 1.0s;
+}
+.agent-workstation.active .screen-glow {
+  animation-duration: 0.9s;
+}
+
+@keyframes headBobbing {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-1.5px) rotate(1deg); }
+}
+.worker-head-nod {
+  animation: headBobbing 1.8s ease-in-out infinite;
+  transform-origin: 56px 30px;
+}
+
+@keyframes eyeBlink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  96% { transform: scaleY(0.1); }
+}
+.worker-eye {
+  animation: eyeBlink 3.2s ease-in-out infinite;
+  transform-origin: 57.5px 28.5px;
+}
+
+@keyframes docHover {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-3.5px); }
+}
+.holo-doc-wrap {
+  animation: docHover 2.4s ease-in-out infinite;
+}
+
+@keyframes laserSweep {
+  0% { transform: translateY(0px); opacity: 0.3; }
+  50% { transform: translateY(20px); opacity: 1; filter: drop-shadow(0 0 3px #22c55e); }
+  100% { transform: translateY(0px); opacity: 0.3; }
+}
+.scanner-laser {
+  animation: laserSweep 1.6s ease-in-out infinite;
+}
+
+@keyframes steamRiseWave {
+  0% { transform: translateY(0); opacity: 0; }
+  40% { opacity: 0.7; }
+  100% { transform: translateY(-8px) translateX(2px); opacity: 0; }
+}
+.steam-1 { animation: steamRiseWave 2s ease-out infinite; }
+.steam-2 { animation: steamRiseWave 2s ease-out 0.7s infinite; }
+
+@keyframes screenGlowPulse {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 0.55; }
+}
+.screen-glow { animation: screenGlowPulse 2s ease-in-out infinite; }
+
+@keyframes codeType {
+  0%, 100% { stroke-dashoffset: 0; opacity: 0.8; }
+  50% { stroke-dashoffset: 10; opacity: 0.4; }
+}
+.screen-line { stroke-dasharray: 20; animation: codeType 1.2s linear infinite; }
+
 .terminal-body {
-  padding: 16px;
-  height: 220px;
+  padding: 14px 18px;
+  height: 200px;
   overflow-y: auto;
   font-family: 'JetBrains Mono', monospace;
   font-size: 12px;

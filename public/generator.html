@@ -310,9 +310,124 @@
               <span></span><span></span><span></span>
             </div>
             <span class="terminal-title">Real-Time Generation Log</span>
+            <div id="verifierStatusBadge" style="margin-left: auto; margin-right: 12px; font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 6px; background: rgba(59, 130, 246, 0.15); color: #3b82f6; display: inline-flex; align-items: center; gap: 5px; transition: all 0.3s ease;">
+              🛡️ Question Verifier: Ready
+            </div>
             <button id="btnClearLog" class="btn-text">Clear</button>
           </div>
-          <div id="logOutput" class="terminal-body" style="max-height: 200px;">
+
+          <!-- Animated Worker Agent Workstation -->
+          <div class="agent-workstation">
+            <div class="agent-canvas-box">
+              <svg width="150" height="75" viewBox="0 0 160 85" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- Ambient Desk Glow -->
+                <ellipse cx="80" cy="80" rx="70" ry="5" fill="rgba(59, 130, 246, 0.15)"/>
+                
+                <!-- Ergonomic Office Chair -->
+                <path d="M30 45 Q26 60 28 75 L38 75 Q36 60 38 45 Z" fill="#1e293b"/>
+                <rect x="23" y="32" width="12" height="30" rx="6" fill="#334155"/>
+                <circle cx="29" cy="76" r="3" fill="#0f172a"/>
+                
+                <!-- Modern Desk Surface & Legs -->
+                <rect x="20" y="65" width="135" height="4" rx="2" fill="#475569"/>
+                <line x1="28" y1="69" x2="28" y2="82" stroke="#334155" stroke-width="3" stroke-linecap="round"/>
+                <line x1="145" y1="69" x2="145" y2="82" stroke="#334155" stroke-width="3" stroke-linecap="round"/>
+
+                <!-- Coffee Mug with Rising Animated Steam -->
+                <rect x="23" y="55" width="9" height="10" rx="2" fill="#e2e8f0"/>
+                <path d="M32 57 Q35 60 32 63" stroke="#e2e8f0" stroke-width="1.5" fill="none"/>
+                <path class="steam-1" d="M25 52 Q27 48 25 44" stroke="rgba(255,255,255,0.7)" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+                <path class="steam-2" d="M29 51 Q31 47 29 43" stroke="rgba(255,255,255,0.7)" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+
+                <!-- Worker Person Body / Developer Hoodie -->
+                <path d="M40 70 L42 48 Q48 44 60 44 Q72 44 74 52 L78 70 Z" fill="#2563eb"/>
+                <path d="M52 44 L56 56 L60 44" fill="#1d4ed8"/>
+
+                <!-- Moving Head & Bobbing Headset -->
+                <g class="worker-head-nod">
+                  <!-- Head / Face -->
+                  <circle cx="56" cy="30" r="12" fill="#fed7aa"/>
+                  <!-- Hair -->
+                  <path d="M46 30 Q45 18 56 18 Q67 18 67 28 Q62 23 54 24 Q48 25 46 30 Z" fill="#1e293b"/>
+                  <!-- Blinking Eyes -->
+                  <g class="worker-eye">
+                    <rect x="55" y="27" width="5" height="3" rx="1" fill="#0f172a"/>
+                    <circle cx="57.5" cy="28.5" r="0.75" fill="#38bdf8"/>
+                  </g>
+                  <!-- Cheerful Smile -->
+                  <path d="M57 34 Q59 36 62 34" stroke="#c2410c" stroke-width="0.9" stroke-linecap="round" fill="none"/>
+                  <!-- Headset band & Glowing earpiece -->
+                  <path d="M47 28 Q50 16 60 18" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" fill="none"/>
+                  <rect x="44" y="26" width="4" height="8" rx="2" fill="#0284c7"/>
+                </g>
+
+                <!-- Laptop Base & Glowing Code Screen -->
+                <path d="M80 43 L96 40 L97 62 L81 63 Z" fill="#0f172a" stroke="#334155" stroke-width="1"/>
+                <path d="M82 44 L95 41.5 L96 60.5 L83 61.5 Z" fill="#0369a1"/>
+                <polygon points="82,44 95,41.5 96,60.5 83,61.5" fill="#38bdf8" class="screen-glow"/>
+                <!-- Live Code Lines on Laptop Screen -->
+                <line x1="84" y1="47" x2="93" y2="45.5" stroke="#7dd3fc" stroke-width="1.2" stroke-linecap="round" class="screen-line"/>
+                <line x1="84" y1="51" x2="91" y2="49.5" stroke="#a7f3d0" stroke-width="1.2" stroke-linecap="round" class="screen-line"/>
+                <line x1="84" y1="55" x2="94" y2="53.5" stroke="#fef08a" stroke-width="1.2" stroke-linecap="round" class="screen-line"/>
+                <polygon points="76,64 99,63 94,66 72,66" fill="#1e293b" stroke="#475569" stroke-width="0.8"/>
+
+                <!-- Moving Arms & Hands Typing Rapidly on Keyboard -->
+                <path class="arm-left" d="M49 53 Q60 58 75 62" stroke="#2563eb" stroke-width="4.5" stroke-linecap="round" fill="none"/>
+                <circle class="hand-left" cx="75" cy="62" r="2.5" fill="#fed7aa"/>
+                
+                <path class="arm-right" d="M58 54 Q70 57 82 61" stroke="#1d4ed8" stroke-width="4.5" stroke-linecap="round" fill="none"/>
+                <circle class="hand-right" cx="82" cy="61" r="2.5" fill="#fed7aa"/>
+
+                <!-- Floating Holographic Document with Moving Laser Scanner -->
+                <g class="holo-doc-wrap">
+                  <rect x="110" y="20" width="36" height="42" rx="3" fill="rgba(15, 23, 42, 0.88)" stroke="#38bdf8" stroke-width="1.2"/>
+                  <rect x="114" y="24" width="7" height="6" rx="1" fill="#38bdf8"/>
+                  <line x1="124" y1="26" x2="140" y2="26" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round"/>
+                  <line x1="124" y1="29" x2="136" y2="29" stroke="#64748b" stroke-width="1.2" stroke-linecap="round"/>
+                  
+                  <line x1="114" y1="34" x2="142" y2="34" stroke="#e2e8f0" stroke-width="1.2" stroke-linecap="round"/>
+                  <line x1="114" y1="38" x2="138" y2="38" stroke="#cbd5e1" stroke-width="1" stroke-linecap="round"/>
+                  <line x1="118" y1="42" x2="134" y2="42" stroke="#94a3b8" stroke-width="1" stroke-linecap="round"/>
+                  <line x1="118" y1="46" x2="136" y2="46" stroke="#94a3b8" stroke-width="1" stroke-linecap="round"/>
+                  <line x1="114" y1="51" x2="142" y2="51" stroke="#34d399" stroke-width="1.2" stroke-linecap="round"/>
+                  <line x1="114" y1="55" x2="130" y2="55" stroke="#38bdf8" stroke-width="1.2" stroke-linecap="round"/>
+                  
+                  <circle cx="140" cy="56" r="4.5" fill="#10b981"/>
+                  <path d="M138 56 L139.5 57.5 L142.5 54.5" stroke="#ffffff" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+
+                  <!-- Laser Scanner Sweep -->
+                  <g class="scanner-laser">
+                    <line x1="108" y1="24" x2="148" y2="24" stroke="#22c55e" stroke-width="1.6" stroke-linecap="round"/>
+                    <line x1="110" y1="24" x2="146" y2="24" stroke="#86efac" stroke-width="0.8"/>
+                  </g>
+                </g>
+              </svg>
+            </div>
+
+            <div class="agent-details-column">
+              <div class="agent-header-row">
+                <span class="agent-status-light" id="agentStatusLight"></span>
+                <span class="agent-name-tag">Quiz Integrity Agent</span>
+                <span class="agent-state-pill" id="agentStatePill">IDLE</span>
+              </div>
+              <div class="agent-speech-bubble" id="agentSpeechBubble">
+                "Standing by to verify question integrity &amp; format documents..."
+              </div>
+            </div>
+
+            <div class="agent-stats-column">
+              <div class="agent-stat-box">
+                <span class="stat-title">Accuracy</span>
+                <span class="stat-value" id="agentAccuracyVal" style="color: #34d399;">100%</span>
+              </div>
+              <div class="agent-stat-box">
+                <span class="stat-title">Integrity</span>
+                <span class="stat-value" id="agentIntegrityVal" style="color: #60a5fa;">Ready</span>
+              </div>
+            </div>
+          </div>
+
+          <div id="logOutput" class="terminal-body" style="max-height: 220px;">
             <div class="log-line text-muted">[DOCX Generator ready. Choose a source file or month to start]</div>
           </div>
         </div>
@@ -348,14 +463,86 @@
 
       // Listen to SSE stream for live progress
       const eventSource = new EventSource('/api/upload-stream');
+      const badge = document.getElementById('verifierStatusBadge');
+      const workstation = document.querySelector('.agent-workstation');
+      const agentStatusLight = document.getElementById('agentStatusLight');
+      const agentStatePill = document.getElementById('agentStatePill');
+      const agentSpeechBubble = document.getElementById('agentSpeechBubble');
+      const agentIntegrityVal = document.getElementById('agentIntegrityVal');
+      const agentAccuracyVal = document.getElementById('agentAccuracyVal');
+
+      function setAgentState(state, speech, integrityText, integrityColor) {
+        if (workstation) {
+          if (state === 'working') workstation.classList.add('active');
+          else if (state === 'idle' || state === 'verified') workstation.classList.remove('active');
+        }
+        if (agentStatusLight) {
+          if (state === 'working') {
+            agentStatusLight.style.backgroundColor = '#f59e0b';
+            agentStatusLight.style.boxShadow = '0 0 10px #f59e0b';
+          } else if (state === 'verified') {
+            agentStatusLight.style.backgroundColor = '#10b981';
+            agentStatusLight.style.boxShadow = '0 0 10px #10b981';
+          } else if (state === 'error') {
+            agentStatusLight.style.backgroundColor = '#ef4444';
+            agentStatusLight.style.boxShadow = '0 0 10px #ef4444';
+          } else {
+            agentStatusLight.style.backgroundColor = '#3b82f6';
+            agentStatusLight.style.boxShadow = '0 0 8px #3b82f6';
+          }
+        }
+        if (agentStatePill) {
+          agentStatePill.className = `agent-state-pill ${state}`;
+          agentStatePill.textContent = state.toUpperCase();
+        }
+        if (agentSpeechBubble && speech) {
+          agentSpeechBubble.textContent = `"${speech}"`;
+        }
+        if (agentIntegrityVal && integrityText) {
+          agentIntegrityVal.textContent = integrityText;
+          if (integrityColor) agentIntegrityVal.style.color = integrityColor;
+        }
+      }
+
       eventSource.onmessage = (e) => {
         try {
           const data = JSON.parse(e.data);
-          if (data.type === 'pdf-gen-log') {
-            appendLog(data.message, data.level || 'info');
+          if (data.type === 'pdf-gen-log' || data.type === 'info' || data.type === 'success' || data.type === 'warn' || data.type === 'error') {
+            const level = data.level || (data.type !== 'pdf-gen-log' ? data.type : 'info');
+            appendLog(data.message, level);
+
+            // Update verifier badge and animated workstation based on agent logs
+            if (data.message) {
+              const msg = data.message;
+              if (msg.includes('Verification Agent on:') || msg.includes('Verifying question count') || msg.includes('Verifying question sequence')) {
+                setAgentState('working', '⚡ Scanning & cross-checking parsed questions against source document...', 'Auditing...', '#fbbf24');
+                if (badge) {
+                  badge.style.background = 'rgba(59, 130, 246, 0.2)';
+                  badge.style.color = '#3b82f6';
+                  badge.innerHTML = '🛡️ Question Verifier: Auditing...';
+                }
+              } else if (msg.includes('[Verification Agent] PASSED') || msg.includes('[Monthly Verification Agent] Compilation Verified')) {
+                setAgentState('verified', '✅ 100% Verified! All questions, choices & explanations match original document.', 'Passed (100%)', '#34d399');
+                if (badge) {
+                  badge.style.background = 'rgba(16, 185, 129, 0.2)';
+                  badge.style.color = '#10b981';
+                  badge.innerHTML = '🛡️ Question Verifier: ✅ 100% Verified';
+                }
+              } else if (msg.includes('Injecting questions into CareersCloud') || msg.includes('Generating native Daily PDF') || msg.includes('Writing document:')) {
+                setAgentState('working', '📝 Generating formatted Word (.docx) & PDF documents...', 'Processing...', '#60a5fa');
+              } else if (msg.includes('[Verification Agent] Discrepancies') || msg.includes('Integrity Alert') || msg.includes('Integrity Warning')) {
+                setAgentState('error', '⚠️ Integrity warning: Discrepancy detected in question format.', 'Warning', '#ef4444');
+                if (badge) {
+                  badge.style.background = 'rgba(239, 68, 68, 0.2)';
+                  badge.style.color = '#ef4444';
+                  badge.innerHTML = '🛡️ Question Verifier: ⚠️ Issues Flagged';
+                }
+              }
+            }
           } else if (data.type === 'pdf-gen-complete') {
             appendLog(`🎉 ${data.mode === 'monthly' ? 'Monthly Compilation' : 'Daily Quiz'} generation complete!`, 'success');
             data.files?.forEach(f => appendLog(`  📄 Created: ${f.name}`, 'success'));
+            setAgentState('verified', '🎉 Generation finished! Word docx & PDF ready for download.', 'Completed', '#10b981');
             import('./modules/pdfGenUI.js').then(m => {
               if (m.setCurrentGenerated && data.files) {
                 m.setCurrentGenerated(data.files);
@@ -364,6 +551,7 @@
             }).catch(() => {});
           } else if (data.type === 'pdf-gen-error') {
             appendLog(`❌ Generation Error: ${data.message}`, 'error');
+            setAgentState('error', `❌ Error: ${data.message}`, 'Failed', '#ef4444');
           }
         } catch(err) {}
       };
