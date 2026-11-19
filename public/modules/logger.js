@@ -33,3 +33,9 @@ if (btnClearLog) {
   btnClearLog.addEventListener('click', clearLog);
 }
 
+// Also wire the always-visible inline log clear button
+const btnClearInlineLog = document.getElementById('btnClearInlineLog');
+if (btnClearInlineLog) {
+  btnClearInlineLog.addEventListener('click', clearLog);
+}
+

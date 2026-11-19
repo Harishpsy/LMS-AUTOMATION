@@ -19,7 +19,7 @@ const {
   getMonthFolder,
   OUTPUT_DIR
 } = require('./quizParser');
-const { verifyQuizIntegrity } = require('./questionVerifier');
+const { verifyQuizIntegrity } = require('./agents/questionVerifier');
 
 /**
  * Generate Monthly Topic-Wise Quiz (creates English monthly from English files, Hindi monthly from Hindi files)

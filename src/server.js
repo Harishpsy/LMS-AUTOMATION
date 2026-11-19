@@ -597,6 +597,7 @@ app.post('/api/pdf-gen/generate-daily', async (req, res) => {
       delete require.cache[require.resolve('./dailyTemplateInjector')];
       delete require.cache[require.resolve('./quizParser')];
       delete require.cache[require.resolve('./questionVerifier')];
+      delete require.cache[require.resolve('./agents/questionVerifier')];
       delete require.cache[require.resolve('./docxXmlHelpers')];
     } catch {}
     const { generateDailyQuiz } = require('./dailyPdfGenerator');
@@ -723,6 +724,7 @@ app.post('/api/pdf-gen/generate-monthly', async (req, res) => {
       delete require.cache[require.resolve('./monthlyTemplateInjector')];
       delete require.cache[require.resolve('./quizParser')];
       delete require.cache[require.resolve('./questionVerifier')];
+      delete require.cache[require.resolve('./agents/questionVerifier')];
       delete require.cache[require.resolve('./docxXmlHelpers')];
     } catch {}
     const { generateMonthlyQuiz } = require('./monthlyPdfGenerator');

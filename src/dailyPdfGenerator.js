@@ -20,7 +20,7 @@ const {
   getDateFolder,
   OUTPUT_DIR
 } = require('./quizParser');
-const { verifyQuizIntegrity } = require('./questionVerifier');
+const { verifyQuizIntegrity } = require('./agents/questionVerifier');
 
 function selectDailySideBanners(questionsCount, textResult) {
   let expectedQ = 1;

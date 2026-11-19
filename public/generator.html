@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=10">
+  <link rel="stylesheet" href="styles.css?v=12">
   <style>
     .nav-tabs-bar {
       display: flex;
@@ -303,132 +303,414 @@
           </div>
         </div>
 
-        <!-- 2. Live Execution Terminal Log -->
-        <div class="terminal-card">
-          <div class="terminal-header">
-            <div class="terminal-dots">
-              <span></span><span></span><span></span>
-            </div>
-            <span class="terminal-title">Real-Time Generation Log</span>
-            <div id="verifierStatusBadge" style="margin-left: auto; margin-right: 12px; font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 6px; background: rgba(59, 130, 246, 0.15); color: #3b82f6; display: inline-flex; align-items: center; gap: 5px; transition: all 0.3s ease;">
-              🛡️ Question Verifier: Ready
-            </div>
-            <button id="btnClearLog" class="btn-text">Clear</button>
-          </div>
-
-          <!-- Animated Worker Agent Workstation -->
-          <div class="agent-workstation">
-            <div class="agent-canvas-box">
-              <svg width="150" height="75" viewBox="0 0 160 85" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <!-- Ambient Desk Glow -->
-                <ellipse cx="80" cy="80" rx="70" ry="5" fill="rgba(59, 130, 246, 0.15)"/>
-                
-                <!-- Ergonomic Office Chair -->
-                <path d="M30 45 Q26 60 28 75 L38 75 Q36 60 38 45 Z" fill="#1e293b"/>
-                <rect x="23" y="32" width="12" height="30" rx="6" fill="#334155"/>
-                <circle cx="29" cy="76" r="3" fill="#0f172a"/>
-                
-                <!-- Modern Desk Surface & Legs -->
-                <rect x="20" y="65" width="135" height="4" rx="2" fill="#475569"/>
-                <line x1="28" y1="69" x2="28" y2="82" stroke="#334155" stroke-width="3" stroke-linecap="round"/>
-                <line x1="145" y1="69" x2="145" y2="82" stroke="#334155" stroke-width="3" stroke-linecap="round"/>
-
-                <!-- Coffee Mug with Rising Animated Steam -->
-                <rect x="23" y="55" width="9" height="10" rx="2" fill="#e2e8f0"/>
-                <path d="M32 57 Q35 60 32 63" stroke="#e2e8f0" stroke-width="1.5" fill="none"/>
-                <path class="steam-1" d="M25 52 Q27 48 25 44" stroke="rgba(255,255,255,0.7)" stroke-width="1.2" stroke-linecap="round" fill="none"/>
-                <path class="steam-2" d="M29 51 Q31 47 29 43" stroke="rgba(255,255,255,0.7)" stroke-width="1.2" stroke-linecap="round" fill="none"/>
-
-                <!-- Worker Person Body / Developer Hoodie -->
-                <path d="M40 70 L42 48 Q48 44 60 44 Q72 44 74 52 L78 70 Z" fill="#2563eb"/>
-                <path d="M52 44 L56 56 L60 44" fill="#1d4ed8"/>
-
-                <!-- Moving Head & Bobbing Headset -->
-                <g class="worker-head-nod">
-                  <!-- Head / Face -->
-                  <circle cx="56" cy="30" r="12" fill="#fed7aa"/>
-                  <!-- Hair -->
-                  <path d="M46 30 Q45 18 56 18 Q67 18 67 28 Q62 23 54 24 Q48 25 46 30 Z" fill="#1e293b"/>
-                  <!-- Blinking Eyes -->
-                  <g class="worker-eye">
-                    <rect x="55" y="27" width="5" height="3" rx="1" fill="#0f172a"/>
-                    <circle cx="57.5" cy="28.5" r="0.75" fill="#38bdf8"/>
-                  </g>
-                  <!-- Cheerful Smile -->
-                  <path d="M57 34 Q59 36 62 34" stroke="#c2410c" stroke-width="0.9" stroke-linecap="round" fill="none"/>
-                  <!-- Headset band & Glowing earpiece -->
-                  <path d="M47 28 Q50 16 60 18" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" fill="none"/>
-                  <rect x="44" y="26" width="4" height="8" rx="2" fill="#0284c7"/>
-                </g>
-
-                <!-- Laptop Base & Glowing Code Screen -->
-                <path d="M80 43 L96 40 L97 62 L81 63 Z" fill="#0f172a" stroke="#334155" stroke-width="1"/>
-                <path d="M82 44 L95 41.5 L96 60.5 L83 61.5 Z" fill="#0369a1"/>
-                <polygon points="82,44 95,41.5 96,60.5 83,61.5" fill="#38bdf8" class="screen-glow"/>
-                <!-- Live Code Lines on Laptop Screen -->
-                <line x1="84" y1="47" x2="93" y2="45.5" stroke="#7dd3fc" stroke-width="1.2" stroke-linecap="round" class="screen-line"/>
-                <line x1="84" y1="51" x2="91" y2="49.5" stroke="#a7f3d0" stroke-width="1.2" stroke-linecap="round" class="screen-line"/>
-                <line x1="84" y1="55" x2="94" y2="53.5" stroke="#fef08a" stroke-width="1.2" stroke-linecap="round" class="screen-line"/>
-                <polygon points="76,64 99,63 94,66 72,66" fill="#1e293b" stroke="#475569" stroke-width="0.8"/>
-
-                <!-- Moving Arms & Hands Typing Rapidly on Keyboard -->
-                <path class="arm-left" d="M49 53 Q60 58 75 62" stroke="#2563eb" stroke-width="4.5" stroke-linecap="round" fill="none"/>
-                <circle class="hand-left" cx="75" cy="62" r="2.5" fill="#fed7aa"/>
-                
-                <path class="arm-right" d="M58 54 Q70 57 82 61" stroke="#1d4ed8" stroke-width="4.5" stroke-linecap="round" fill="none"/>
-                <circle class="hand-right" cx="82" cy="61" r="2.5" fill="#fed7aa"/>
-
-                <!-- Floating Holographic Document with Moving Laser Scanner -->
-                <g class="holo-doc-wrap">
-                  <rect x="110" y="20" width="36" height="42" rx="3" fill="rgba(15, 23, 42, 0.88)" stroke="#38bdf8" stroke-width="1.2"/>
-                  <rect x="114" y="24" width="7" height="6" rx="1" fill="#38bdf8"/>
-                  <line x1="124" y1="26" x2="140" y2="26" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round"/>
-                  <line x1="124" y1="29" x2="136" y2="29" stroke="#64748b" stroke-width="1.2" stroke-linecap="round"/>
-                  
-                  <line x1="114" y1="34" x2="142" y2="34" stroke="#e2e8f0" stroke-width="1.2" stroke-linecap="round"/>
-                  <line x1="114" y1="38" x2="138" y2="38" stroke="#cbd5e1" stroke-width="1" stroke-linecap="round"/>
-                  <line x1="118" y1="42" x2="134" y2="42" stroke="#94a3b8" stroke-width="1" stroke-linecap="round"/>
-                  <line x1="118" y1="46" x2="136" y2="46" stroke="#94a3b8" stroke-width="1" stroke-linecap="round"/>
-                  <line x1="114" y1="51" x2="142" y2="51" stroke="#34d399" stroke-width="1.2" stroke-linecap="round"/>
-                  <line x1="114" y1="55" x2="130" y2="55" stroke="#38bdf8" stroke-width="1.2" stroke-linecap="round"/>
-                  
-                  <circle cx="140" cy="56" r="4.5" fill="#10b981"/>
-                  <path d="M138 56 L139.5 57.5 L142.5 54.5" stroke="#ffffff" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
-
-                  <!-- Laser Scanner Sweep -->
-                  <g class="scanner-laser">
-                    <line x1="108" y1="24" x2="148" y2="24" stroke="#22c55e" stroke-width="1.6" stroke-linecap="round"/>
-                    <line x1="110" y1="24" x2="146" y2="24" stroke="#86efac" stroke-width="0.8"/>
-                  </g>
-                </g>
-              </svg>
-            </div>
-
-            <div class="agent-details-column">
-              <div class="agent-header-row">
-                <span class="agent-status-light" id="agentStatusLight"></span>
-                <span class="agent-name-tag">Quiz Integrity Agent</span>
-                <span class="agent-state-pill" id="agentStatePill">IDLE</span>
+        <!-- 2. AI Multi-Agent Standup & Verification Studio -->
+        <div class="agent-studio-card">
+          <!-- Header Bar with Live Badge & View Switchers -->
+          <div class="studio-header">
+            <div class="studio-title-group">
+              <div class="studio-live-indicator">
+                <span class="live-pulse-dot" id="studioLivePulse"></span>
+                <span>AGENT STANDUP STUDIO</span>
               </div>
-              <div class="agent-speech-bubble" id="agentSpeechBubble">
-                "Standing by to verify question integrity &amp; format documents..."
-              </div>
+              <span class="studio-sub">4 Specialized Agents Verifying &amp; Formatting Quizzes Live</span>
             </div>
-
-            <div class="agent-stats-column">
-              <div class="agent-stat-box">
-                <span class="stat-title">Accuracy</span>
-                <span class="stat-value" id="agentAccuracyVal" style="color: #34d399;">100%</span>
-              </div>
-              <div class="agent-stat-box">
-                <span class="stat-title">Integrity</span>
-                <span class="stat-value" id="agentIntegrityVal" style="color: #60a5fa;">Ready</span>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <div class="studio-tabs">
+                <button type="button" id="tabViewOffice" class="studio-tab-btn active" title="View 4 Agents Working at Desks">
+                  👥 Agent Office
+                </button>
+                <button type="button" id="tabViewPipeline" class="studio-tab-btn" title="View Stepper Pipeline Flow">
+                  ⚡ Pipeline Flow
+                </button>
               </div>
             </div>
           </div>
 
-          <div id="logOutput" class="terminal-body" style="max-height: 220px;">
-            <div class="log-line text-muted">[DOCX Generator ready. Choose a source file or month to start]</div>
+          <!-- View 1: 4-Agent Standup Office Grid -->
+          <div id="officeViewPanel" class="agent-office-grid">
+            
+            <!-- Agent 1: Ken - Document Parser -->
+            <div class="agent-card" id="agentCardParser">
+              <div class="agent-card-header">
+                <div class="agent-identity">
+                  <span class="agent-person-name">Ken</span>
+                  <span class="agent-person-role">Doc Parser</span>
+                </div>
+                <span class="agent-mini-pill" id="pillParser">IDLE</span>
+              </div>
+              <div class="agent-avatar-frame">
+                <svg width="120" height="95" viewBox="0 0 120 95" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <!-- Desk surface & ambient glow -->
+                  <rect x="12" y="72" width="96" height="5" rx="2.5" fill="#334155"/>
+                  <ellipse cx="60" cy="75" rx="44" ry="3.5" fill="rgba(59,130,246,0.18)" class="agent-desk-glow"/>
+
+                  <!-- Dual monitor: LEFT screen -->
+                  <rect x="18" y="43" width="30" height="26" rx="3" fill="#0f172a" stroke="#38bdf8" stroke-width="1"/>
+                  <rect x="20" y="45" width="26" height="22" rx="2" fill="#0284c7" opacity="0.18" class="agent-screen-bg"/>
+                  <!-- animated code lines -->
+                  <line class="screen-line" x1="22" y1="49" x2="40" y2="49" stroke="#7dd3fc" stroke-width="1.3" stroke-linecap="round" style="animation-delay:0s"/>
+                  <line class="screen-line" x1="22" y1="53" x2="37" y2="53" stroke="#a7f3d0" stroke-width="1.3" stroke-linecap="round" style="animation-delay:0.3s"/>
+                  <line class="screen-line" x1="22" y1="57" x2="42" y2="57" stroke="#fef08a" stroke-width="1.3" stroke-linecap="round" style="animation-delay:0.6s"/>
+                  <line class="screen-line" x1="22" y1="61" x2="34" y2="61" stroke="#c084fc" stroke-width="1.3" stroke-linecap="round" style="animation-delay:0.9s"/>
+
+                  <!-- Character Body (blue shirt) with body bounce -->
+                  <g class="agent-body-bounce">
+                    <path d="M46 80 L49 60 Q56 56 64 56 Q72 56 75 60 L78 80 Z" fill="#2563eb"/>
+                    <!-- Left arm typing -->
+                    <path class="agent-arm-left" d="M49 62 Q44 68 42 73" stroke="#1d4ed8" stroke-width="4" stroke-linecap="round" fill="none"/>
+                    <!-- Right arm typing -->
+                    <path class="agent-arm-right" d="M75 62 Q80 68 82 73" stroke="#1d4ed8" stroke-width="4" stroke-linecap="round" fill="none"/>
+                    <!-- Typing hands -->
+                    <circle class="hand-left" cx="43" cy="73" r="3" fill="#fed7aa"/>
+                    <circle class="hand-right" cx="82" cy="73" r="3" fill="#fed7aa"/>
+                  </g>
+
+                  <!-- Animated Head & Headset -->
+                  <g class="worker-head-nod">
+                    <circle cx="62" cy="44" r="12" fill="#fed7aa"/>
+                    <!-- Dark hair -->
+                    <path d="M51 43 Q51 31 62 31 Q73 31 73 42 Q68 37 61 38 Z" fill="#1e293b"/>
+                    <!-- Yellow headset arc -->
+                    <path d="M51 41 Q54 29 69 30" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+                    <rect x="48" y="39" width="5" height="8" rx="2.5" fill="#d97706"/>
+                    <rect x="69" y="39" width="5" height="8" rx="2.5" fill="#d97706"/>
+                    <!-- Blinking Eyes -->
+                    <g class="worker-eye">
+                      <circle cx="58" cy="43" r="1.4" fill="#0f172a"/>
+                      <circle cx="66" cy="43" r="1.4" fill="#0f172a"/>
+                      <!-- eye shine -->
+                      <circle cx="58.6" cy="42.3" r="0.4" fill="#ffffff" opacity="0.7"/>
+                      <circle cx="66.6" cy="42.3" r="0.4" fill="#ffffff" opacity="0.7"/>
+                    </g>
+                    <!-- smile -->
+                    <path d="M60 49 Q62 51 65 49" stroke="#c2410c" stroke-width="1" stroke-linecap="round" fill="none"/>
+                  </g>
+
+                  <!-- Floating DOCX document (hovering right) -->
+                  <g class="holo-doc-wrap">
+                    <rect x="84" y="36" width="24" height="30" rx="2" fill="#ffffff" stroke="#94a3b8" stroke-width="1" opacity="0.92"/>
+                    <!-- doc header blue bar -->
+                    <rect x="86" y="38" width="20" height="4" rx="1" fill="#2563eb"/>
+                    <line x1="86" y1="45" x2="104" y2="45" stroke="#64748b" stroke-width="1" stroke-linecap="round"/>
+                    <line x1="86" y1="49" x2="102" y2="49" stroke="#64748b" stroke-width="1" stroke-linecap="round"/>
+                    <line x1="86" y1="53" x2="104" y2="53" stroke="#10b981" stroke-width="1.2" stroke-linecap="round"/>
+                    <line x1="86" y1="57" x2="98" y2="57" stroke="#64748b" stroke-width="1" stroke-linecap="round"/>
+                    <!-- small green tick -->
+                    <circle cx="104" cy="66" r="4" fill="#10b981"/>
+                    <path d="M102 66 L103.5 67.5 L106 65" stroke="#fff" stroke-width="1" stroke-linecap="round" fill="none"/>
+                  </g>
+                </svg>
+              </div>
+              <div class="agent-card-footer">
+                <span>Task: Extract 30Q</span>
+                <span class="agent-metric-txt" id="metricParser">Waiting</span>
+              </div>
+            </div>
+
+            <!-- Agent 2: Margot - Lead Question Verifier (The Inspector with Magnifying Glass & Checklist) -->
+            <div class="agent-card" id="agentCardVerifier">
+              <div class="agent-card-header">
+                <div class="agent-identity">
+                  <span class="agent-person-name">Margot</span>
+                  <span class="agent-person-role">Quality &amp; Verifier</span>
+                </div>
+                <span class="agent-mini-pill" id="pillVerifier">READY</span>
+              </div>
+              <div class="agent-avatar-frame">
+                <svg width="120" height="95" viewBox="0 0 120 95" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <!-- Desk & Green Inspection Glow -->
+                  <rect x="12" y="72" width="96" height="5" rx="2.5" fill="#334155"/>
+                  <ellipse cx="60" cy="75" rx="44" ry="3.5" fill="rgba(16,185,129,0.22)" class="agent-desk-glow"/>
+
+                  <!-- Inspection Clipboard on desk -->
+                  <rect x="18" y="34" width="30" height="36" rx="3" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.2"/>
+                  <!-- clip -->
+                  <rect x="28" y="31" width="12" height="5" rx="1.5" fill="#475569"/>
+                  <!-- scan highlight bar sweeping clipboard -->
+                  <clipPath id="clipboardClip">
+                    <rect x="18" y="34" width="30" height="36" rx="3"/>
+                  </clipPath>
+                  <rect class="agent-clipboard-scan" x="18" y="34" width="30" height="4" rx="0" fill="rgba(16,185,129,0.35)" clip-path="url(#clipboardClip)"/>
+                  <!-- Check items Q1 / Q2 / Q3 -->
+                  <text x="22" y="46" font-size="6" fill="#334155" font-weight="bold">Q1</text>
+                  <circle cx="41" cy="43" r="3" fill="#10b981" class="check-pulse"/>
+                  <path d="M39.8 43 L40.8 44.2 L42.8 41.8" stroke="#fff" stroke-width="0.9" fill="none" stroke-linecap="round"/>
+
+                  <text x="22" y="56" font-size="6" fill="#334155" font-weight="bold">Q2</text>
+                  <circle cx="41" cy="53" r="3" fill="#10b981" class="check-pulse"/>
+                  <path d="M39.8 53 L40.8 54.2 L42.8 51.8" stroke="#fff" stroke-width="0.9" fill="none" stroke-linecap="round"/>
+
+                  <text x="22" y="66" font-size="6" fill="#334155" font-weight="bold">Q3</text>
+                  <circle cx="41" cy="63" r="3" fill="#10b981" class="check-pulse"/>
+                  <path d="M39.8 63 L40.8 64.2 L42.8 61.8" stroke="#fff" stroke-width="0.9" fill="none" stroke-linecap="round"/>
+
+                  <!-- Margot Body / Inspector Blazer with body bounce -->
+                  <g class="agent-body-bounce">
+                    <path d="M48 80 L51 60 Q57 56 64 56 Q71 56 74 60 L77 80 Z" fill="#047857"/>
+                    <path d="M60 56 L64 66 L68 56" fill="#065f46"/>
+                    <!-- Holding arm (the one with magnifying glass) -->
+                    <path class="agent-arm-right" d="M74 62 Q84 55 90 52" stroke="#065f46" stroke-width="4.5" stroke-linecap="round" fill="none"/>
+                  </g>
+
+                  <!-- Animated Moving Magnifying Glass (Sweeps & Inspects) -->
+                  <g class="mag-glass-active">
+                    <circle cx="92" cy="50" r="12" fill="rgba(56,189,248,0.2)" stroke="#f59e0b" stroke-width="2.5"/>
+                    <circle cx="92" cy="50" r="9.5" stroke="rgba(255,255,255,0.6)" stroke-width="0.8" fill="none"/>
+                    <!-- glare -->
+                    <path d="M86 46 Q88 43 92 43" stroke="#ffffff" stroke-width="1.3" stroke-linecap="round" fill="none"/>
+                    <!-- green verification dot in center -->
+                    <circle cx="92" cy="50" r="2.5" fill="#22c55e" opacity="0.9"/>
+                    <!-- handle -->
+                    <line x1="101" y1="59" x2="112" y2="70" stroke="#78350f" stroke-width="3.5" stroke-linecap="round"/>
+                  </g>
+
+                  <!-- Animated Head & Ponytail/Hair -->
+                  <g class="worker-head-nod">
+                    <circle cx="62" cy="43" r="12" fill="#fed7aa"/>
+                    <!-- Hair -->
+                    <path d="M51 41 Q51 30 62 30 Q73 30 73 41 Q69 36 62 37 Z" fill="#92400e"/>
+                    <!-- side bun/ponytail -->
+                    <circle cx="74" cy="37" r="5" fill="#92400e"/>
+                    <!-- Glasses frames -->
+                    <rect x="55" y="40" width="6" height="4.5" rx="2" stroke="#1e293b" stroke-width="0.9" fill="rgba(186,230,253,0.15)"/>
+                    <rect x="63" y="40" width="6" height="4.5" rx="2" stroke="#1e293b" stroke-width="0.9" fill="rgba(186,230,253,0.15)"/>
+                    <line x1="61" y1="42" x2="63" y2="42" stroke="#1e293b" stroke-width="0.9"/>
+                    <!-- Blinking Eyes -->
+                    <g class="worker-eye">
+                      <circle cx="58" cy="42" r="1.1" fill="#0284c7"/>
+                      <circle cx="66" cy="42" r="1.1" fill="#0284c7"/>
+                      <circle cx="58.5" cy="41.4" r="0.35" fill="#fff" opacity="0.8"/>
+                      <circle cx="66.5" cy="41.4" r="0.35" fill="#fff" opacity="0.8"/>
+                    </g>
+                    <path d="M60 47 Q62 49.5 65 47" stroke="#be123c" stroke-width="0.9" stroke-linecap="round" fill="none"/>
+                  </g>
+                </svg>
+              </div>
+              <div class="agent-card-footer">
+                <span>1-to-1 Match</span>
+                <span class="agent-metric-txt" id="metricVerifier" style="color: #34d399;">100% Guard</span>
+              </div>
+            </div>
+
+            <!-- Agent 3: Jules - Word DOCX Template Designer -->
+            <div class="agent-card" id="agentCardDesigner">
+              <div class="agent-card-header">
+                <div class="agent-identity">
+                  <span class="agent-person-name">Jules</span>
+                  <span class="agent-person-role">Template &amp; Layout</span>
+                </div>
+                <span class="agent-mini-pill" id="pillDesigner">STANDBY</span>
+              </div>
+              <div class="agent-avatar-frame">
+                <svg width="120" height="95" viewBox="0 0 120 95" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <!-- Desk & Purple Glow -->
+                  <rect x="12" y="72" width="96" height="5" rx="2.5" fill="#334155"/>
+                  <ellipse cx="60" cy="75" rx="44" ry="3.5" fill="rgba(168,85,247,0.22)" class="agent-desk-glow"/>
+
+                  <!-- Coffee Mug with animated steam wisps -->
+                  <rect x="17" y="60" width="10" height="12" rx="2" fill="#f8fafc" stroke="#cbd5e1" stroke-width="0.8"/>
+                  <path d="M27 62 Q31 66 27 70" stroke="#cbd5e1" stroke-width="1.2" fill="none"/>
+                  <!-- steam wisps -->
+                  <path class="steam-wisp-1" d="M19 58 Q21 54 19 50" stroke="rgba(200,180,255,0.8)" stroke-width="1.3" stroke-linecap="round" fill="none"/>
+                  <path class="steam-wisp-2" d="M22 57 Q24 52 22 48" stroke="rgba(200,180,255,0.6)" stroke-width="1" stroke-linecap="round" fill="none"/>
+                  <path class="steam-wisp-3" d="M25 58 Q27 54 25 50" stroke="rgba(200,180,255,0.5)" stroke-width="0.8" stroke-linecap="round" fill="none"/>
+
+                  <!-- Jules Body / Designer Sweater with body bounce -->
+                  <g class="agent-body-bounce">
+                    <path d="M46 80 L49 60 Q56 56 64 56 Q72 56 75 60 L78 80 Z" fill="#7c3aed"/>
+                    <!-- Left arm at keyboard -->
+                    <path class="agent-arm-left" d="M49 62 Q44 69 41 73" stroke="#6d28d9" stroke-width="4" stroke-linecap="round" fill="none"/>
+                    <!-- Right arm raised holding pen/pencil -->
+                    <path class="agent-arm-right" d="M75 62 Q79 55 83 50" stroke="#6d28d9" stroke-width="4" stroke-linecap="round" fill="none"/>
+                    <!-- pencil in hand -->
+                    <line x1="83" y1="50" x2="90" y2="40" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/>
+                    <polygon points="90,38 88,41 92,41" fill="#f59e0b"/>
+                    <!-- typing hand -->
+                    <circle class="hand-left" cx="41" cy="73" r="3" fill="#fed7aa"/>
+                  </g>
+
+                  <!-- Head with Pink Beanie Hat -->
+                  <g class="worker-head-nod">
+                    <circle cx="62" cy="45" r="12" fill="#fed7aa"/>
+                    <!-- Pink/Magenta Beanie -->
+                    <path d="M50 43 Q50 29 62 29 Q74 29 74 43 Z" fill="#ec4899"/>
+                    <rect x="49" y="41" width="26" height="4.5" rx="2.2" fill="#db2777"/>
+                    <circle cx="62" cy="27" r="3.5" fill="#f472b6"/>
+                    <!-- Round Glasses -->
+                    <circle cx="57" cy="45" r="3.8" stroke="#1e293b" stroke-width="0.9" fill="rgba(186,230,253,0.1)"/>
+                    <circle cx="66" cy="45" r="3.8" stroke="#1e293b" stroke-width="0.9" fill="rgba(186,230,253,0.1)"/>
+                    <line x1="60.8" y1="45" x2="62.2" y2="45" stroke="#1e293b" stroke-width="0.9"/>
+                    <!-- Blinking Eyes -->
+                    <g class="worker-eye">
+                      <circle cx="57" cy="45" r="1.2" fill="#0f172a"/>
+                      <circle cx="66" cy="45" r="1.2" fill="#0f172a"/>
+                      <circle cx="57.5" cy="44.3" r="0.4" fill="#ffffff" opacity="0.7"/>
+                      <circle cx="66.5" cy="44.3" r="0.4" fill="#ffffff" opacity="0.7"/>
+                    </g>
+                    <path d="M60 50 Q62 52.5 65 50" stroke="#c2410c" stroke-width="0.9" stroke-linecap="round" fill="none"/>
+                  </g>
+
+                  <!-- Formatted Word DOCX Document Preview hovering right -->
+                  <g class="holo-doc-wrap" style="animation-delay: 0.6s;">
+                    <rect x="78" y="36" width="30" height="34" rx="3" fill="#1e293b" stroke="#3b82f6" stroke-width="1.2"/>
+                    <!-- blue Word ribbon -->
+                    <rect x="81" y="39" width="24" height="6" rx="1" fill="#2563eb"/>
+                    <text x="83" y="44" font-size="5" fill="#ffffff" font-weight="bold">DOCX</text>
+                    <line x1="81" y1="48" x2="105" y2="48" stroke="#475569" stroke-width="0.8"/>
+                    <line x1="81" y1="52" x2="103" y2="52" stroke="#94a3b8" stroke-width="1"/>
+                    <line x1="81" y1="56" x2="101" y2="56" stroke="#94a3b8" stroke-width="1"/>
+                    <line x1="81" y1="60" x2="98" y2="60" stroke="#cbd5e1" stroke-width="1"/>
+                    <!-- green preserved badge -->
+                    <rect x="81" y="64" width="14" height="4" rx="1.5" fill="#10b981"/>
+                    <text x="83" y="67.5" font-size="4" fill="#ffffff" font-weight="bold">OK</text>
+                  </g>
+                </svg>
+              </div>
+              <div class="agent-card-footer">
+                <span>Daily/Monthly DOCX</span>
+                <span class="agent-metric-txt" id="metricDesigner">Preserved</span>
+              </div>
+            </div>
+
+            <!-- Agent 4: Alex - PDF Compiler Engine -->
+            <div class="agent-card" id="agentCardPdf">
+              <div class="agent-card-header">
+                <div class="agent-identity">
+                  <span class="agent-person-name">Alex</span>
+                  <span class="agent-person-role">PDF &amp; Print Engine</span>
+                </div>
+                <span class="agent-mini-pill" id="pillPdf">IDLE</span>
+              </div>
+              <div class="agent-avatar-frame">
+                <svg width="120" height="95" viewBox="0 0 120 95" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <!-- Desk & Cyan Visor Glow -->
+                  <rect x="12" y="72" width="96" height="5" rx="2.5" fill="#334155"/>
+                  <ellipse cx="60" cy="75" rx="44" ry="3.5" fill="rgba(6,182,212,0.22)" class="agent-desk-glow"/>
+
+                  <!-- Robot Body with body bounce -->
+                  <g class="agent-body-bounce">
+                    <rect x="47" y="58" width="30" height="22" rx="5" fill="#334155" stroke="#475569" stroke-width="1.2"/>
+                    <!-- chest panel -->
+                    <rect x="52" y="62" width="20" height="10" rx="2.5" fill="#0f172a"/>
+                    <circle cx="57" cy="67" r="2" fill="#22c55e"/>
+                    <circle cx="62" cy="67" r="2" fill="#3b82f6"/>
+                    <circle cx="67" cy="67" r="2" fill="#eab308"/>
+                    <!-- Left arm -->
+                    <path class="agent-arm-left" d="M47 65 Q38 68 34 72" stroke="#334155" stroke-width="5" stroke-linecap="round" fill="none"/>
+                    <circle cx="34" cy="72" r="3.5" fill="#475569"/>
+                    <!-- Right arm -->
+                    <path class="agent-arm-right" d="M77 65 Q86 68 90 72" stroke="#334155" stroke-width="5" stroke-linecap="round" fill="none"/>
+                    <circle cx="90" cy="72" r="3.5" fill="#475569"/>
+                  </g>
+
+                  <!-- Robot Head with Glowing Cyan Visor -->
+                  <g class="worker-head-nod">
+                    <rect x="47" y="30" width="30" height="26" rx="7" fill="#1e293b" stroke="#0284c7" stroke-width="1.5"/>
+                    <!-- Antenna -->
+                    <line x1="62" y1="30" x2="62" y2="22" stroke="#0284c7" stroke-width="2.5" stroke-linecap="round"/>
+                    <circle cx="62" cy="21" r="3" fill="#38bdf8"/>
+                    <!-- antenna blink -->
+                    <circle cx="62" cy="21" r="5" fill="rgba(56,189,248,0.3)" class="check-pulse" style="animation-delay: 0.8s;"/>
+                    <!-- Ear bolts -->
+                    <rect x="43" y="37" width="4" height="12" rx="2" fill="#0284c7"/>
+                    <rect x="77" y="37" width="4" height="12" rx="2" fill="#0284c7"/>
+                    <!-- Visor Screen (animated glow) -->
+                    <rect x="51" y="35" width="22" height="14" rx="3.5" fill="#082f49" class="robot-visor-glow"/>
+                    <!-- visor scan line -->
+                    <clipPath id="visorClip">
+                      <rect x="51" y="35" width="22" height="14" rx="3.5"/>
+                    </clipPath>
+                    <rect class="agent-visor-scan" x="51" y="35" width="6" height="14" fill="rgba(56,189,248,0.3)" clip-path="url(#visorClip)"/>
+                    <text x="53" y="45" font-size="8" fill="#38bdf8" font-family="monospace" font-weight="bold">^_^</text>
+                  </g>
+
+                  <!-- Final PDF Badge hovering right (enhanced) -->
+                  <g class="agent-pdf-badge">
+                    <rect x="81" y="36" width="28" height="34" rx="3" fill="#ef4444" opacity="0.96"/>
+                    <!-- PDF label -->
+                    <text x="85" y="50" font-size="10" fill="#ffffff" font-weight="900" font-family="sans-serif">PDF</text>
+                    <line x1="85" y1="55" x2="105" y2="55" stroke="rgba(255,255,255,0.7)" stroke-width="1"/>
+                    <line x1="85" y1="59" x2="102" y2="59" stroke="rgba(255,255,255,0.5)" stroke-width="1"/>
+                    <!-- green done badge -->
+                    <circle cx="99" cy="39" r="5.5" fill="#10b981"/>
+                    <path d="M96.5 39 L98.2 41 L102 37" stroke="#fff" stroke-width="1.3" stroke-linecap="round" fill="none"/>
+                    <!-- glow halo around pdf -->
+                    <rect x="81" y="36" width="28" height="34" rx="3" fill="none" stroke="#f87171" stroke-width="1" opacity="0.5" class="check-pulse" style="animation-delay:1s;"/>
+                  </g>
+                </svg>
+              </div>
+              <div class="agent-card-footer">
+                <span>Vector Layout</span>
+                <span class="agent-metric-txt" id="metricPdf">Ready</span>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- View 2: Stepper Pipeline Flow (Inspired by Reference Image 3!) -->
+          <div id="pipelineViewPanel" class="agent-pipeline-view hidden">
+            <div class="pipeline-step-node" id="stepNodeSource">
+              <div class="step-node-bubble">📁</div>
+              <span class="step-node-label">1. Source Doc</span>
+              <span class="step-node-owner">Workspace Upload</span>
+            </div>
+            <div class="pipeline-connector-line" id="line1"></div>
+
+            <div class="pipeline-step-node" id="stepNodeParser">
+              <div class="step-node-bubble">📄</div>
+              <span class="step-node-label">2. Parser</span>
+              <span class="step-node-owner">Ken</span>
+            </div>
+            <div class="pipeline-connector-line" id="line2"></div>
+
+            <div class="pipeline-step-node" id="stepNodeVerifier">
+              <div class="step-node-bubble">🔍</div>
+              <span class="step-node-label">3. Verifier</span>
+              <span class="step-node-owner">Margot (1-to-1)</span>
+            </div>
+            <div class="pipeline-connector-line" id="line3"></div>
+
+            <div class="pipeline-step-node" id="stepNodeLayout">
+              <div class="step-node-bubble">🎨</div>
+              <span class="step-node-label">4. Template</span>
+              <span class="step-node-owner">Jules</span>
+            </div>
+            <div class="pipeline-connector-line" id="line4"></div>
+
+            <div class="pipeline-step-node" id="stepNodePdf">
+              <div class="step-node-bubble">📥</div>
+              <span class="step-node-label">5. Ready</span>
+              <span class="step-node-owner">Alex</span>
+            </div>
+          </div>
+
+          <!-- Live Human Dialogue & Status Banner -->
+          <div class="agent-live-dialogue">
+            <div class="dialogue-avatar" id="activeAgentAvatar">🔍</div>
+            <div class="dialogue-content">
+              <div class="dialogue-speaker" id="activeAgentSpeaker">Margot — Question Verifier</div>
+              <div class="dialogue-text" id="activeAgentText">"Standing by. Upload or select a daily/monthly quiz to begin 1-to-1 question audit."</div>
+            </div>
+            <div class="dialogue-metric">
+              <span class="metric-label">Accuracy &amp; Guard</span>
+              <span class="metric-val" id="dialogueMetricVal">100% Guard Active</span>
+            </div>
+          </div>
+
+          <!-- Always-Visible Real-Time Log below the agent cards -->
+          <div class="studio-inline-log-wrap">
+            <div class="studio-inline-log-header">
+              <div class="studio-inline-log-dots">
+                <span class="dot dot-red"></span>
+                <span class="dot dot-yellow"></span>
+                <span class="dot dot-green"></span>
+                <span class="studio-inline-log-title">REAL-TIME GENERATION LOG</span>
+              </div>
+              <button id="btnClearInlineLog" class="btn-text" style="font-size:11px;padding:4px 8px;opacity:0.7;">Clear</button>
+            </div>
+            <div id="logOutput" class="terminal-body studio-inline-log-body">
+              <div class="log-line text-muted">[System ready. Choose a quiz document and click Generate]</div>
+            </div>
           </div>
         </div>
 
@@ -461,48 +743,140 @@
       initTheme();
       initPdfGenerator();
 
-      // Listen to SSE stream for live progress
-      const eventSource = new EventSource('/api/upload-stream');
-      const badge = document.getElementById('verifierStatusBadge');
-      const workstation = document.querySelector('.agent-workstation');
-      const agentStatusLight = document.getElementById('agentStatusLight');
-      const agentStatePill = document.getElementById('agentStatePill');
-      const agentSpeechBubble = document.getElementById('agentSpeechBubble');
-      const agentIntegrityVal = document.getElementById('agentIntegrityVal');
-      const agentAccuracyVal = document.getElementById('agentAccuracyVal');
+      // Studio View Switchers
+      const tabOffice = document.getElementById('tabViewOffice');
+      const tabPipeline = document.getElementById('tabViewPipeline');
 
-      function setAgentState(state, speech, integrityText, integrityColor) {
-        if (workstation) {
-          if (state === 'working') workstation.classList.add('active');
-          else if (state === 'idle' || state === 'verified') workstation.classList.remove('active');
-        }
-        if (agentStatusLight) {
-          if (state === 'working') {
-            agentStatusLight.style.backgroundColor = '#f59e0b';
-            agentStatusLight.style.boxShadow = '0 0 10px #f59e0b';
-          } else if (state === 'verified') {
-            agentStatusLight.style.backgroundColor = '#10b981';
-            agentStatusLight.style.boxShadow = '0 0 10px #10b981';
-          } else if (state === 'error') {
-            agentStatusLight.style.backgroundColor = '#ef4444';
-            agentStatusLight.style.boxShadow = '0 0 10px #ef4444';
-          } else {
-            agentStatusLight.style.backgroundColor = '#3b82f6';
-            agentStatusLight.style.boxShadow = '0 0 8px #3b82f6';
-          }
-        }
-        if (agentStatePill) {
-          agentStatePill.className = `agent-state-pill ${state}`;
-          agentStatePill.textContent = state.toUpperCase();
-        }
-        if (agentSpeechBubble && speech) {
-          agentSpeechBubble.textContent = `"${speech}"`;
-        }
-        if (agentIntegrityVal && integrityText) {
-          agentIntegrityVal.textContent = integrityText;
-          if (integrityColor) agentIntegrityVal.style.color = integrityColor;
+      const panelOffice = document.getElementById('officeViewPanel');
+      const panelPipeline = document.getElementById('pipelineViewPanel');
+
+      function switchStudioView(view) {
+        tabOffice?.classList.toggle('active', view === 'office');
+        tabPipeline?.classList.toggle('active', view === 'pipeline');
+
+        if (panelOffice) panelOffice.style.display = view === 'office' ? 'grid' : 'none';
+        if (panelPipeline) panelPipeline.style.display = view === 'pipeline' ? 'flex' : 'none';
+        // logOutput is always visible — never toggled
+      }
+
+      tabOffice?.addEventListener('click', () => switchStudioView('office'));
+      tabPipeline?.addEventListener('click', () => switchStudioView('pipeline'));
+
+      // Wire inline clear log button
+      document.getElementById('btnClearInlineLog')?.addEventListener('click', () => {
+        clearLog();
+      });
+
+      // Agent Cards & Pills
+      const cardParser = document.getElementById('agentCardParser');
+      const cardVerifier = document.getElementById('agentCardVerifier');
+      const cardDesigner = document.getElementById('agentCardDesigner');
+      const cardPdf = document.getElementById('agentCardPdf');
+
+      const pillParser = document.getElementById('pillParser');
+      const pillVerifier = document.getElementById('pillVerifier');
+      const pillDesigner = document.getElementById('pillDesigner');
+      const pillPdf = document.getElementById('pillPdf');
+
+      const metricParser = document.getElementById('metricParser');
+      const metricVerifier = document.getElementById('metricVerifier');
+      const metricDesigner = document.getElementById('metricDesigner');
+      const metricPdf = document.getElementById('metricPdf');
+
+      // Live Dialogue Elements
+      const activeAvatar = document.getElementById('activeAgentAvatar');
+      const activeSpeaker = document.getElementById('activeAgentSpeaker');
+      const activeText = document.getElementById('activeAgentText');
+      const dialogueMetricVal = document.getElementById('dialogueMetricVal');
+
+      // Stepper Nodes
+      const stepSource = document.getElementById('stepNodeSource');
+      const stepParser = document.getElementById('stepNodeParser');
+      const stepVerifier = document.getElementById('stepNodeVerifier');
+      const stepLayout = document.getElementById('stepNodeLayout');
+      const stepPdf = document.getElementById('stepNodePdf');
+      const line1 = document.getElementById('line1');
+      const line2 = document.getElementById('line2');
+      const line3 = document.getElementById('line3');
+      const line4 = document.getElementById('line4');
+
+      function setAgentStandupStage(stage, details = {}) {
+        // Reset classes helper
+        const setCard = (card, pill, metricEl, state, pillText, metricText) => {
+          if (!card) return;
+          card.className = `agent-card ${state}`;
+          if (pill) pill.textContent = pillText;
+          if (metricEl && metricText) metricEl.textContent = metricText;
+        };
+
+        if (details.speaker && activeSpeaker) activeSpeaker.textContent = details.speaker;
+        if (details.avatar && activeAvatar) activeAvatar.textContent = details.avatar;
+        if (details.text && activeText) activeText.textContent = `"${details.text}"`;
+        if (details.metric && dialogueMetricVal) dialogueMetricVal.textContent = details.metric;
+
+        if (stage === 'parsing') {
+          stepSource?.classList.add('completed');
+          line1?.classList.add('active');
+          stepParser?.classList.add('active');
+
+          setCard(cardParser, pillParser, metricParser, 'working', 'WORKING', 'Parsing 30Q...');
+          setCard(cardVerifier, pillVerifier, metricVerifier, '', 'STANDBY', '100% Guard');
+          setCard(cardDesigner, pillDesigner, metricDesigner, '', 'STANDBY', 'Preserved');
+          setCard(cardPdf, pillPdf, metricPdf, '', 'STANDBY', 'Ready');
+        } else if (stage === 'auditing') {
+          stepSource?.classList.add('completed');
+          stepParser?.classList.add('completed');
+          line1?.classList.add('active');
+          line2?.classList.add('active');
+          stepVerifier?.classList.add('active');
+
+          setCard(cardParser, pillParser, metricParser, 'verified', 'DONE', '30Q Extracted');
+          setCard(cardVerifier, pillVerifier, metricVerifier, 'working', 'AUDITING', 'Inspecting...');
+          setCard(cardDesigner, pillDesigner, metricDesigner, '', 'STANDBY', 'Preserved');
+          setCard(cardPdf, pillPdf, metricPdf, '', 'STANDBY', 'Ready');
+        } else if (stage === 'verified') {
+          stepVerifier?.classList.remove('active');
+          stepVerifier?.classList.add('completed');
+          line2?.classList.add('active');
+          line3?.classList.add('active');
+
+          setCard(cardVerifier, pillVerifier, metricVerifier, 'verified', '100% VERIFIED', '30/30 Matched');
+        } else if (stage === 'formatting') {
+          stepVerifier?.classList.add('completed');
+          stepLayout?.classList.add('active');
+          line3?.classList.add('active');
+
+          setCard(cardDesigner, pillDesigner, metricDesigner, 'working', 'BUILDING', 'Word Template');
+        } else if (stage === 'compiling') {
+          stepLayout?.classList.add('completed');
+          line3?.classList.add('active');
+          line4?.classList.add('active');
+          stepPdf?.classList.add('active');
+
+          setCard(cardDesigner, pillDesigner, metricDesigner, 'verified', 'DONE', 'Template Ready');
+          setCard(cardPdf, pillPdf, metricPdf, 'working', 'EXPORTING', 'Compiling PDF');
+        } else if (stage === 'complete') {
+          stepSource?.classList.add('completed');
+          stepParser?.classList.add('completed');
+          stepVerifier?.classList.add('completed');
+          stepLayout?.classList.add('completed');
+          stepPdf?.classList.add('completed');
+          line1?.classList.add('active');
+          line2?.classList.add('active');
+          line3?.classList.add('active');
+          line4?.classList.add('active');
+
+          setCard(cardParser, pillParser, metricParser, 'verified', 'DONE', '30Q Extracted');
+          setCard(cardVerifier, pillVerifier, metricVerifier, 'verified', '100% VERIFIED', '30/30 Passed');
+          setCard(cardDesigner, pillDesigner, metricDesigner, 'verified', 'DONE', 'Word DOCX');
+          setCard(cardPdf, pillPdf, metricPdf, 'verified', 'READY', 'PDF Exported');
+        } else if (stage === 'error') {
+          setCard(cardVerifier, pillVerifier, metricVerifier, 'working', 'ALERT', 'Issue Flagged');
         }
       }
+
+      // Listen to SSE stream for live progress
+      const eventSource = new EventSource('/api/upload-stream');
 
       eventSource.onmessage = (e) => {
         try {
@@ -511,38 +885,61 @@
             const level = data.level || (data.type !== 'pdf-gen-log' ? data.type : 'info');
             appendLog(data.message, level);
 
-            // Update verifier badge and animated workstation based on agent logs
             if (data.message) {
               const msg = data.message;
-              if (msg.includes('Verification Agent on:') || msg.includes('Verifying question count') || msg.includes('Verifying question sequence')) {
-                setAgentState('working', '⚡ Scanning & cross-checking parsed questions against source document...', 'Auditing...', '#fbbf24');
-                if (badge) {
-                  badge.style.background = 'rgba(59, 130, 246, 0.2)';
-                  badge.style.color = '#3b82f6';
-                  badge.innerHTML = '🛡️ Question Verifier: Auditing...';
-                }
+              if (msg.includes('Parsing Daily Quiz:') || msg.includes('Parsing Monthly Quiz:')) {
+                setAgentStandupStage('parsing', {
+                  speaker: 'Ken — Document Parser',
+                  avatar: '📄',
+                  text: msg,
+                  metric: 'Parsing Document'
+                });
+              } else if (msg.includes('Running Question Verification Agent') || msg.includes('Verifying question count') || msg.includes('Verifying question sequence')) {
+                setAgentStandupStage('auditing', {
+                  speaker: 'Margot — Question Verifier',
+                  avatar: '🔍',
+                  text: 'Scanning source document line-by-line: checking question count, options 1-5, and explanation completeness...',
+                  metric: 'Auditing 1-to-1'
+                });
               } else if (msg.includes('[Verification Agent] PASSED') || msg.includes('[Monthly Verification Agent] Compilation Verified')) {
-                setAgentState('verified', '✅ 100% Verified! All questions, choices & explanations match original document.', 'Passed (100%)', '#34d399');
-                if (badge) {
-                  badge.style.background = 'rgba(16, 185, 129, 0.2)';
-                  badge.style.color = '#10b981';
-                  badge.innerHTML = '🛡️ Question Verifier: ✅ 100% Verified';
-                }
-              } else if (msg.includes('Injecting questions into CareersCloud') || msg.includes('Generating native Daily PDF') || msg.includes('Writing document:')) {
-                setAgentState('working', '📝 Generating formatted Word (.docx) & PDF documents...', 'Processing...', '#60a5fa');
+                setAgentStandupStage('verified', {
+                  speaker: 'Margot — Question Verifier',
+                  avatar: '✅',
+                  text: '100% Verification Passed! All 30 questions, options, and explanations match original uploaded document perfectly.',
+                  metric: 'Passed (100%)'
+                });
+              } else if (msg.includes('Injecting questions into CareersCloud') || msg.includes('Writing document:')) {
+                setAgentStandupStage('formatting', {
+                  speaker: 'Jules — Template Designer',
+                  avatar: '🎨',
+                  text: 'Applying CareersCloud official template: formatting headers, table borders, and question styling...',
+                  metric: 'Building Word DOCX'
+                });
+              } else if (msg.includes('Generating native Daily PDF') || msg.includes('Generating native Monthly PDF')) {
+                setAgentStandupStage('compiling', {
+                  speaker: 'Alex — PDF Compiler',
+                  avatar: '⚡',
+                  text: 'Converting and rendering native PDF with Word layout engine...',
+                  metric: 'Compiling PDF'
+                });
               } else if (msg.includes('[Verification Agent] Discrepancies') || msg.includes('Integrity Alert') || msg.includes('Integrity Warning')) {
-                setAgentState('error', '⚠️ Integrity warning: Discrepancy detected in question format.', 'Warning', '#ef4444');
-                if (badge) {
-                  badge.style.background = 'rgba(239, 68, 68, 0.2)';
-                  badge.style.color = '#ef4444';
-                  badge.innerHTML = '🛡️ Question Verifier: ⚠️ Issues Flagged';
-                }
+                setAgentStandupStage('error', {
+                  speaker: 'Margot — Question Verifier',
+                  avatar: '⚠️',
+                  text: `Integrity Alert: Discrepancy detected in source document formatting.`,
+                  metric: 'Warning Flagged'
+                });
               }
             }
           } else if (data.type === 'pdf-gen-complete') {
             appendLog(`🎉 ${data.mode === 'monthly' ? 'Monthly Compilation' : 'Daily Quiz'} generation complete!`, 'success');
             data.files?.forEach(f => appendLog(`  📄 Created: ${f.name}`, 'success'));
-            setAgentState('verified', '🎉 Generation finished! Word docx & PDF ready for download.', 'Completed', '#10b981');
+            setAgentStandupStage('complete', {
+              speaker: 'Agent Standup Team',
+              avatar: '🎉',
+              text: 'All 4 agents finished! Formatted Word (.docx) & native PDF are ready for download.',
+              metric: '100% Completed'
+            });
             import('./modules/pdfGenUI.js').then(m => {
               if (m.setCurrentGenerated && data.files) {
                 m.setCurrentGenerated(data.files);
@@ -551,7 +948,12 @@
             }).catch(() => {});
           } else if (data.type === 'pdf-gen-error') {
             appendLog(`❌ Generation Error: ${data.message}`, 'error');
-            setAgentState('error', `❌ Error: ${data.message}`, 'Failed', '#ef4444');
+            setAgentStandupStage('error', {
+              speaker: 'Alex — PDF Compiler',
+              avatar: '❌',
+              text: `Error encountered: ${data.message}`,
+              metric: 'Generation Failed'
+            });
           }
         } catch(err) {}
       };
