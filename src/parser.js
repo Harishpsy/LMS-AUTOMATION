@@ -92,24 +92,67 @@ async function parseQuizDocx(filePath, options = {}) {
   });
 
   // Split into question blocks using regex for paragraph with question number
-  const questionSplitter = /(?=<p>(?:\s*<[^>]+>\s*)*\s*\d{1,3}\.\s*)/i;
+  // Guard against percentages (e.g. 42.7% or 21.5%) so they are never split as question numbers
+  const questionSplitter = /(?=<p>(?:\s*<[^>]+>\s*)*\s*\d{1,3}\.(?!\d+%\s*|\d+%\b))/i;
   const rawBlocks = guardedHtml.split(questionSplitter);
 
-  // Merge any rogue blocks (e.g. an option accidentally formatted as "3. Name" inside question 22)
+  function blockHasAnswer(html) {
+    return /(?:Answer|\u0909\u0924\u094D\u0924\u0930(?!\u093E)[\u0903:]?|\u0906\u0902\u0938\u0930|\bAns\b)(?:<[^>]+>|\s)*(?:[\u2010-\u2015\u2212\-\:\u0903]|&ndash;|&#8211;)?/i.test(html);
+  }
+
+  function blockOptionsCount(html) {
+    const matches = html.match(/<p>(?:\s*<[^>]+>\s*)*\s*[1-5A-E][).]/gi) || [];
+    return matches.length;
+  }
+
+  // Merge any rogue blocks (e.g. an option accidentally formatted as "3. Name" inside question 22,
+  // or decimal/percentage text inside an explanation like "42.7% ho gaya")
   const blocks = [];
   let lastValidQNum = 0;
   for (let b = 0; b < rawBlocks.length; b++) {
     const rawBlock = rawBlocks[b];
+
+    // If block starts with a percentage (e.g. 42.7%), it is definitely not a question
+    if (/^<p>(?:\s*<[^>]+>\s*)*\s*\d+(?:\.\d+)?\s*%/i.test(rawBlock)) {
+      if (blocks.length > 0) blocks[blocks.length - 1] += rawBlock;
+      else blocks.push(rawBlock);
+      continue;
+    }
+
     const m = rawBlock.match(/^<p>(?:\s*<[^>]+>\s*)*\s*(\d{1,3})\.\s*/i);
     if (!m) {
       if (blocks.length > 0) blocks[blocks.length - 1] += rawBlock;
       else blocks.push(rawBlock);
       continue;
     }
+
     const qNum = parseInt(m[1], 10);
-    // If block number is <= lastValidQNum (e.g. "3. " inside question 22), it is a malformed option belonging to previous question
+    const hasAns = blockHasAnswer(rawBlock);
+    const opts = blockOptionsCount(rawBlock);
+
+    // If candidate has no answer and no options, it cannot be a standalone question
+    // (it is trailing explanation or metadata belonging to previous question)
+    if (!hasAns && opts < 2) {
+      if (blocks.length > 0) blocks[blocks.length - 1] += rawBlock;
+      else blocks.push(rawBlock);
+      continue;
+    }
+
+    // Sequence check: in a quiz, question number cannot jump wildly (e.g. from 1 to 42)
+    if (lastValidQNum > 0 && qNum > lastValidQNum + 5) {
+      if (blocks.length > 0) blocks[blocks.length - 1] += rawBlock;
+      else blocks.push(rawBlock);
+      continue;
+    }
+
+    // If block number is <= lastValidQNum, check if it's a new section restart (qNum === 1) or an option like "3. "
     if (qNum <= lastValidQNum) {
-      blocks[blocks.length - 1] += rawBlock;
+      if (qNum === 1 && hasAns && opts >= 3) {
+        lastValidQNum = 1;
+        blocks.push(rawBlock);
+      } else {
+        blocks[blocks.length - 1] += rawBlock;
+      }
     } else {
       lastValidQNum = qNum;
       blocks.push(rawBlock);
