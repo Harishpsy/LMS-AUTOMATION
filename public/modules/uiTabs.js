@@ -3,6 +3,8 @@
  * Handles tab switching (Workspace Folder vs Local Upload) and browser execution mode toggles
  */
 
+import { loadFiles } from './fileManager.js';
+
 /**
  * Switch active source tab between workspace folder and local computer upload
  * @param {'folder'|'upload'} tab
@@ -17,6 +19,10 @@ export function switchTab(tab) {
   if (tabUpload) tabUpload.classList.toggle('active', tab === 'upload');
   if (panelFolder) panelFolder.classList.toggle('hidden', tab !== 'folder');
   if (panelUpload) panelUpload.classList.toggle('hidden', tab !== 'upload');
+
+  if (tab === 'folder') {
+    loadFiles();
+  }
 }
 
 /**

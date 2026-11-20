@@ -22,10 +22,12 @@ export function toggleMediaGallery() {
 
 /**
  * Fetch and populate extracted table screenshots and charts
+ * @param {string} [file] - Optional document filename to fetch assets specifically for
  */
-export async function loadMediaGallery() {
+export async function loadMediaGallery(file) {
   try {
-    const res = await fetch('/api/assets');
+    const url = file ? `/api/assets?file=${encodeURIComponent(file)}` : '/api/assets';
+    const res = await fetch(url);
     if (!res.ok) return;
     const data = await res.json();
 

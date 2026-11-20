@@ -32,14 +32,20 @@ export async function loadFiles() {
       return;
     }
 
+    const previousVal = fileSelect.value;
     fileSelect.innerHTML = '';
     if (data.files && data.files.length > 0) {
       data.files.forEach(f => {
         const opt = document.createElement('option');
-        opt.value = f;
-        opt.textContent = f;
+        const val = typeof f === 'object' ? f.path : f;
+        const text = typeof f === 'object' ? (f.displayName || f.name || f.path) : f;
+        opt.value = val;
+        opt.textContent = text;
         fileSelect.appendChild(opt);
       });
+      if (previousVal && Array.from(fileSelect.options).some(o => o.value === previousVal)) {
+        fileSelect.value = previousVal;
+      }
       appendLog(`Found ${data.files.length} quiz file(s) in workspace.`, 'info');
     } else {
       fileSelect.innerHTML = '<option value="">No .docx files found in workspace</option>';
@@ -135,7 +141,8 @@ export function initFileManager({ onParsedSuccess } = {}) {
         appendLog(`✅ Uploaded & parsed "${uploadedFileBlob.name}" — ${data.totalQuestions} questions found!`, 'success');
 
         renderQuestionsPreview(data.questions);
-        loadMediaGallery();
+        loadMediaGallery(data.uploadedFile);
+        loadFiles(); // Refresh workspace dropdown so the uploaded file is visible
 
         if (typeof onParsedSuccess === 'function') {
           onParsedSuccess(data);
@@ -180,7 +187,7 @@ export function initFileManager({ onParsedSuccess } = {}) {
         appendLog(`Successfully parsed ${data.totalQuestions} questions from document!`, 'success');
 
         renderQuestionsPreview(data.questions);
-        loadMediaGallery();
+        loadMediaGallery(selectedFile);
 
         if (typeof onParsedSuccess === 'function') {
           onParsedSuccess(data);

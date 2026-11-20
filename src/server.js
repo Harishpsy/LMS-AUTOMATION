@@ -91,6 +91,7 @@ app.get('/api/upload-stream', (req, res) => {
 });
 
 // ─── ASSET ROUTES (TABLE SCREENSHOTS & EXTRACTED IMAGES) ─────────────────────
+let activeAssetsDir = null;
 
 /**
  * GET /api/assets
@@ -98,9 +99,18 @@ app.get('/api/upload-stream', (req, res) => {
  */
 app.get('/api/assets', (req, res) => {
   try {
-    const searchDirs = [
-      path.join(ROOT_DIR, 'Quiz Document', 'extracted_assets'),
-      path.join(ROOT_DIR, 'extracted_assets')
+    const fileQuery = req.query.file;
+    let targetDir = null;
+    if (fileQuery) {
+      const fullFile = path.isAbsolute(fileQuery) ? fileQuery : path.join(ROOT_DIR, fileQuery);
+      targetDir = path.join(path.dirname(fullFile), 'extracted_assets');
+    } else if (activeAssetsDir) {
+      targetDir = activeAssetsDir;
+    }
+
+    const searchDirs = targetDir ? [targetDir] : [
+      path.join(ROOT_DIR, 'Uploaded Documents', 'Quiz', 'extracted_assets'),
+      path.join(ROOT_DIR, 'Uploaded Documents', 'Daily', 'extracted_assets')
     ];
 
     const result = { tables: [], images: [] };
@@ -166,22 +176,53 @@ app.get('/api/view-asset', (req, res) => {
 
 /**
  * GET /api/files
- * Lists available .docx files in Quiz Document/ folder and workspace root
+ * Lists available .docx files across Uploaded Documents, Quiz Document, and workspace folders
  */
 app.get('/api/files', (req, res) => {
   try {
-    const quizDocDir = path.join(ROOT_DIR, 'Quiz Document');
-    const files = [];
+    const searchDirs = [
+      path.join(ROOT_DIR, 'Uploaded Documents', 'Quiz'),
+      path.join(ROOT_DIR, 'Uploaded Documents', 'Daily'),
+      path.join(ROOT_DIR, 'Uploaded Documents', 'Monthly'),
+      path.join(ROOT_DIR, 'Uploaded Documents'),
+      path.join(ROOT_DIR, 'Quiz Document'),
+      path.join(ROOT_DIR, 'Daily PDF'),
+      path.join(ROOT_DIR, 'Monthly PDF'),
+      ROOT_DIR
+    ];
 
-    if (fs.existsSync(quizDocDir)) {
-      const items = fs.readdirSync(quizDocDir).filter(f => f.endsWith('.docx'));
-      items.forEach(f => files.push(`Quiz Document/${f}`));
+    const fileEntries = [];
+    const seenPaths = new Set();
+
+    for (const dir of searchDirs) {
+      if (!fs.existsSync(dir)) continue;
+
+      const items = fs.readdirSync(dir, { withFileTypes: true });
+      for (const item of items) {
+        if (item.isFile() && item.name.endsWith('.docx') && !item.name.startsWith('~$')) {
+          const fullPath = path.join(dir, item.name);
+          const relPath = path.relative(ROOT_DIR, fullPath).replace(/\\/g, '/');
+          if (!seenPaths.has(relPath)) {
+            seenPaths.add(relPath);
+            let mtime = 0;
+            try {
+              mtime = fs.statSync(fullPath).mtimeMs;
+            } catch (e) {}
+            fileEntries.push({
+              path: relPath,
+              name: item.name,
+              mtime
+            });
+          }
+        }
+      }
     }
 
-    const rootItems = fs.readdirSync(ROOT_DIR).filter(f => f.endsWith('.docx'));
-    rootItems.forEach(f => files.push(f));
+    // Sort latest modified first
+    fileEntries.sort((a, b) => b.mtime - a.mtime);
 
-    res.json({ files });
+    const files = fileEntries.map(f => f.path);
+    res.json({ files, items: fileEntries });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -313,9 +354,10 @@ app.post('/api/parse', async (req, res) => {
     const { filename } = req.body;
     if (!filename) return res.status(400).json({ error: 'Filename is required' });
 
-    const fullPath = path.join(ROOT_DIR, filename);
+    const fullPath = path.isAbsolute(filename) ? filename : path.join(ROOT_DIR, filename);
     if (!fs.existsSync(fullPath)) return res.status(404).json({ error: 'File does not exist' });
 
+    activeAssetsDir = path.join(path.dirname(fullPath), 'extracted_assets');
     const parsedData = await parseQuizDocx(fullPath);
     res.json(parsedData);
   } catch (err) {
@@ -338,6 +380,7 @@ app.post('/api/upload-docx', (req, res) => {
 
     try {
       const savedPath = req.file.path;
+      activeAssetsDir = path.join(path.dirname(savedPath), 'extracted_assets');
       const parsedData = await parseQuizDocx(savedPath);
       res.json({
         ...parsedData,
