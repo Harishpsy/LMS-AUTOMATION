@@ -26,3 +26,19 @@ Monthly PDF Sample/
 # public/assets/template/*.png, public/logo.png and the DOCX templates from git.
 # Only the images produced while parsing are ignored now:
 **/extracted_assets/
+
+# Ignore image files (screenshots, dumps, extracted images, loose photos)
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.bmp
+*.ico
+
+# Whitelist / keep essential app UI and template image assets
+!public/
+!public/**
+!public/logo.png
+!public/assets/**
+!public/assets/**/*
