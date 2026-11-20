@@ -406,11 +406,24 @@ function renderCards(analyzedList) {
       vDetail = currentVerification.questionDetails.find(d => d.qNum === q.number) || currentVerification.questionDetails[q.number - 1];
     }
 
+    // Format question content preserving paragraphs and statements (A, B, C, D)
+    let formattedQuestion = '';
+    if (q.questionHtml) {
+      let cleanHtml = q.questionHtml.replace(/<table[\s\S]*?<\/table>/gi, '').trim();
+      // Ensure inline statements like "। A)" or "? B)" break onto new lines cleanly
+      cleanHtml = cleanHtml.replace(/([।\.\?\:]\s*)([A-E]\s*[\)\]])/g, '$1<br/><strong class="statement-prefix">$2</strong> ');
+      formattedQuestion = cleanHtml;
+    } else if (q.questionText) {
+      let text = q.questionText.trim();
+      formattedQuestion = text.replace(/([।\.\?\:]\s*)([A-E]\s*[\)\]])/g, '$1<br/><strong class="statement-prefix">$2</strong> ');
+    } else {
+      formattedQuestion = '<span class="text-danger">⚠️ [Missing Question Text]</span>';
+    }
+
     card.innerHTML = `
-      <div class="q-header">
-        <div class="q-num-title">
-          <span class="q-num-pill">#${q.number}</span>
-          ${q.questionText ? q.questionText : '<span class="text-danger">⚠️ [Missing Question Text]</span>'}
+      <div class="q-header-bar">
+        <div class="q-header-left">
+          <span class="q-num-pill">Question #${q.number}</span>
         </div>
         <div class="q-meta-badges">
           ${vDetail ? (vDetail.verified ? '<span class="pill pill-agent-verified" title="100% verified against raw DOCX source document (prompt, 5 choices, answer key, explanation)">🛡️ DOCX 100% Match</span>' : '<span class="pill pill-issue" title="Verification discrepancy found against source">🛡️ DOCX Mismatch</span>') : ''}
@@ -421,6 +434,10 @@ function renderCards(analyzedList) {
           <span class="pill">${q.topic || 'General'}</span>
           <span class="pill">${q.difficulty || 'Easy'}</span>
         </div>
+      </div>
+
+      <div class="q-body-text">
+        ${formattedQuestion}
       </div>
 
       ${issuesBoxHtml}

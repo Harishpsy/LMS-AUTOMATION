@@ -1768,18 +1768,61 @@ input:checked + .slider:before {
   padding: 18px 20px;
 }
 
-.q-header {
+.q-header-bar {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.q-num-title {
+[data-theme="light"] .q-header-bar {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.q-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.q-num-pill {
+  color: var(--accent-blue);
+  font-weight: 700;
+  font-size: 13.5px;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  padding: 3px 10px;
+  border-radius: var(--radius-sm);
+  display: inline-block;
+  letter-spacing: 0.3px;
+}
+
+.q-body-text {
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--text-main);
-  flex: 1;
+  line-height: 1.65;
+  margin-bottom: 16px;
+  width: 100%;
+}
+
+.q-body-text p {
+  margin: 0 0 10px 0;
+  line-height: 1.65;
+}
+
+.q-body-text p:last-child {
+  margin-bottom: 0;
+}
+
+.statement-prefix {
+  display: inline-block;
+  color: var(--accent-blue);
+  font-weight: 700;
 }
 
 .q-meta-badges {
