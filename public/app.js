@@ -3,15 +3,15 @@
  * Orchestrates modular architecture: theme, auth, course/quizzes, files, preview, uploader, and gallery
  */
 
-import { initTheme } from './modules/theme.js';
-import './modules/uiTabs.js';
-import { initAuth, checkAuthStatus } from './modules/auth.js';
-import { initCourseQuiz, fetchCourseQuizzes } from './modules/courseQuiz.js';
-import { initFileManager, loadFiles } from './modules/fileManager.js';
-import { initUploader } from './modules/uploader.js';
-import { initGallery } from './modules/gallery.js';
-import { appendLog } from './modules/logger.js';
-import { initPdfGenerator } from './modules/pdfGenUI.js';
+import { initTheme } from './modules/theme.js?v=11';
+import './modules/uiTabs.js?v=11';
+import { initAuth, checkAuthStatus } from './modules/auth.js?v=11';
+import { initCourseQuiz, fetchCourseQuizzes } from './modules/courseQuiz.js?v=11';
+import { initFileManager, loadFiles } from './modules/fileManager.js?v=11';
+import { initUploader } from './modules/uploader.js?v=11';
+import { initGallery } from './modules/gallery.js?v=11';
+import { appendLog } from './modules/logger.js?v=11';
+import { initPdfGenerator } from './modules/pdfGenUI.js?v=11';
 
 // Application State
 let currentParsedData = null;

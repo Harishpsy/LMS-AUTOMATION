@@ -151,6 +151,82 @@ export function initUploader({ getParsedData } = {}) {
 
     const eventSource = new EventSource('/api/upload-stream');
 
+    // Dual-channel sync: Fallback polling guarantees UI updates even if Cloudflare Tunnel buffers SSE chunks
+    let lastLoggedTime = Date.now();
+    const pollInterval = setInterval(async () => {
+      if (uploadFinished) {
+        clearInterval(pollInterval);
+        return;
+      }
+      try {
+        const statusRes = await fetch('/api/upload-status');
+        if (!statusRes.ok) return;
+        const st = await statusRes.json();
+        if (!st) return;
+
+        // Drain any backend logs that were recorded
+        if (Array.isArray(st.logs)) {
+          st.logs.forEach(l => {
+            if (l.time > lastLoggedTime) {
+              appendLog(l.message, l.level || 'info');
+              lastLoggedTime = Math.max(lastLoggedTime, l.time);
+            }
+          });
+        }
+
+        if (st.running || st.percent > 0) {
+          if (progressBar) progressBar.style.width = `${st.percent}%`;
+          if (progressPercent) progressPercent.textContent = `${st.percent}%`;
+          if (progressText && st.message) progressText.textContent = st.message;
+          if (st.elapsedSec !== undefined && uploadElapsedTime) {
+            uploadElapsedTime.textContent = formatSec(st.elapsedSec);
+          }
+          if (st.etaSec !== undefined && uploadEtaBadge && uploadEtaTime) {
+            uploadEtaBadge.classList.remove('hidden');
+            uploadEtaTime.textContent = formatSec(st.etaSec);
+          }
+          if (st.avgPerQ && progressSpeedVal && st.avgPerQ !== '--') {
+            progressSpeedVal.textContent = `${st.avgPerQ} s/q`;
+          }
+          if (st.completedCount) {
+            setWorkerState('working', `🚀 Uploading question ${st.completedCount} of ${st.totalToUpload} to LMS...`, `${st.percent}%`, '#60a5fa');
+          }
+        }
+
+        if (st.completed && !uploadFinished) {
+          uploadFinished = true;
+          clearInterval(timerInterval);
+          clearInterval(pollInterval);
+          eventSource.close();
+          setWorkerState('verified', '🎉 All questions uploaded and published to LMS successfully!', '100% Published', '#10b981');
+          if (progressBar) progressBar.style.width = '100%';
+          if (progressPercent) progressPercent.textContent = '100%';
+          if (uploadTimerBadge) uploadTimerBadge.classList.add('completed');
+          if (uploadEtaBadge) uploadEtaBadge.classList.add('hidden');
+          if (progressTotalTimeVal) progressTotalTimeVal.textContent = st.formattedDuration || 'Complete';
+          if (progressSpeedVal && st.avgSpeed) progressSpeedVal.textContent = `${st.avgSpeed} s/q`;
+          if (progressText) progressText.textContent = `Upload Complete!`;
+          btnStartUpload.disabled = false;
+          if (btnParse) btnParse.disabled = false;
+          if (btnParseUpload) btnParseUpload.disabled = false;
+        }
+
+        if (st.error && !uploadFinished) {
+          uploadFinished = true;
+          clearInterval(timerInterval);
+          clearInterval(pollInterval);
+          eventSource.close();
+          setWorkerState('error', `❌ Upload Stopped: ${st.error}`, 'Failed', '#ef4444');
+          showError('Automation Upload Failed', st.error, `Course ID: ${courseId}`);
+          btnStartUpload.disabled = false;
+          if (btnParse) btnParse.disabled = false;
+          if (btnParseUpload) btnParseUpload.disabled = false;
+        }
+      } catch (pollErr) {
+        // Silent catch for transient network interruptions
+      }
+    }, 1500);
+
     eventSource.onmessage = (e) => {
       try {
         const data = JSON.parse(e.data);
@@ -185,6 +261,7 @@ export function initUploader({ getParsedData } = {}) {
         } else if (data.type === 'complete') {
           uploadFinished = true;
           clearInterval(timerInterval);
+          clearInterval(pollInterval);
           setWorkerState('verified', '🎉 All questions uploaded and published to LMS successfully!', '100% Published', '#10b981');
 
           const totalSec = data.totalDurationSec || Math.max(1, Math.round((Date.now() - uploadStartTime) / 1000));
@@ -210,6 +287,7 @@ export function initUploader({ getParsedData } = {}) {
         } else if (data.type === 'error') {
           uploadFinished = true;
           clearInterval(timerInterval);
+          clearInterval(pollInterval);
           setWorkerState('error', `❌ Upload Stopped: ${data.message}`, 'Failed', '#ef4444');
           if (uploadEtaBadge) uploadEtaBadge.classList.add('hidden');
           if (progressTotalTimeVal) progressTotalTimeVal.textContent = 'Failed';
@@ -228,16 +306,9 @@ export function initUploader({ getParsedData } = {}) {
       }
     };
 
-    eventSource.onerror = () => {
-      uploadFinished = true;
-      clearInterval(timerInterval);
-      eventSource.close();
-      btnStartUpload.disabled = false;
-      if (btnParse) btnParse.disabled = false;
-      if (btnParseUpload) btnParseUpload.disabled = false;
-      if (!uploadFinished) {
-        showError('Connection Dropped', 'Real-time progress connection was interrupted.', 'The upload may still be running in the background. Check terminal logs.');
-      }
+    eventSource.onerror = (err) => {
+      // Cloudflare Tunnels auto-reconnect on transient packet drops; don't kill the upload
+      console.warn('SSE progress stream reconnecting...', err);
     };
 
     try {
@@ -252,6 +323,7 @@ export function initUploader({ getParsedData } = {}) {
         const errMsg = data.error || `HTTP ${res.status}: Failed to initiate upload automation`;
         showError('Upload Launch Failed', errMsg, `Course: ${courseId}\nTarget Quiz: ${selectedQuizTarget}`);
         eventSource.close();
+        clearInterval(pollInterval);
         btnStartUpload.disabled = false;
         if (btnParse) btnParse.disabled = false;
         if (btnParseUpload) btnParseUpload.disabled = false;
@@ -262,6 +334,7 @@ export function initUploader({ getParsedData } = {}) {
     } catch (err) {
       showError('API Request Failed', `Could not reach upload server: ${err.message}`);
       eventSource.close();
+      clearInterval(pollInterval);
       btnStartUpload.disabled = false;
       if (btnParse) btnParse.disabled = false;
       if (btnParseUpload) btnParseUpload.disabled = false;

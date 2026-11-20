@@ -60,14 +60,62 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 } // 50 MB
 });
 
-// ─── SSE (SERVER-SENT EVENTS) REAL-TIME STREAMING ────────────────────────────
+// ─── SSE (SERVER-SENT EVENTS) REAL-TIME STREAMING & UPLOAD TRACKING ────────
 let activeSseClients = [];
+
+let currentUploadJob = {
+  running: false,
+  courseId: null,
+  targetQuiz: null,
+  completedCount: 0,
+  totalToUpload: 0,
+  percent: 0,
+  elapsedSec: 0,
+  etaSec: 0,
+  avgPerQ: '--',
+  message: '',
+  logs: [],
+  completed: false,
+  error: null,
+  url: null,
+  formattedDuration: null,
+  avgSpeed: null
+};
+
+function recordUploadEvent(event) {
+  if (!event) return;
+  if (event.type === 'progress') {
+    currentUploadJob.percent = event.percent ?? currentUploadJob.percent;
+    currentUploadJob.completedCount = event.current ?? currentUploadJob.completedCount;
+    currentUploadJob.totalToUpload = event.total ?? currentUploadJob.totalToUpload;
+    currentUploadJob.elapsedSec = event.elapsedSec ?? currentUploadJob.elapsedSec;
+    currentUploadJob.etaSec = event.etaSec ?? currentUploadJob.etaSec;
+    currentUploadJob.avgPerQ = event.avgPerQ ?? currentUploadJob.avgPerQ;
+    currentUploadJob.message = event.message || currentUploadJob.message;
+  } else if (event.type === 'log') {
+    currentUploadJob.logs.push({ message: event.message, level: event.level || 'info', time: Date.now() });
+    if (currentUploadJob.logs.length > 200) currentUploadJob.logs.shift();
+  } else if (event.type === 'complete') {
+    currentUploadJob.running = false;
+    currentUploadJob.completed = true;
+    currentUploadJob.percent = 100;
+    currentUploadJob.message = event.message;
+    currentUploadJob.totalDurationSec = event.totalDurationSec;
+    currentUploadJob.formattedDuration = event.formattedDuration;
+    currentUploadJob.avgSpeed = event.avgSpeed;
+    currentUploadJob.url = event.url;
+  } else if (event.type === 'error') {
+    currentUploadJob.running = false;
+    currentUploadJob.error = event.message;
+  }
+}
 
 /**
  * Broadcast an event payload to all connected SSE clients
  * @param {object} data
  */
 function broadcastEvent(data) {
+  recordUploadEvent(data);
   const payload = `data: ${JSON.stringify(data)}\n\n`;
   activeSseClients.forEach(client => {
     try {
@@ -78,18 +126,38 @@ function broadcastEvent(data) {
   });
 }
 
-// SSE stream endpoint for real-time progress updates
+// SSE stream endpoint for real-time progress updates (compatible with Cloudflare Tunnel & reverse proxies)
 app.get('/api/upload-stream', (req, res) => {
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders();
 
+  // 2KB comment padding flushes reverse proxies (Cloudflare edge, Nginx) so events flow without buffering
+  res.write(': ' + ' '.repeat(2048) + '\n\n');
+  res.write(': connected\n\n');
   activeSseClients.push(res);
+
   req.on('close', () => {
     activeSseClients = activeSseClients.filter(c => c !== res);
   });
 });
+
+// Real-time status polling endpoint (bulletproof fallback when SSE is buffered by proxies)
+app.get('/api/upload-status', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.json(currentUploadJob);
+});
+
+// Periodic keepalive ping every 10 seconds to prevent Cloudflare Tunnel from cutting idle streams
+setInterval(() => {
+  activeSseClients.forEach(client => {
+    try {
+      client.write(': keepalive\n\n');
+    } catch (e) {}
+  });
+}, 10000);
 
 // ─── ASSET ROUTES (TABLE SCREENSHOTS & EXTRACTED IMAGES) ─────────────────────
 let activeAssetsDir = null;
@@ -447,6 +515,25 @@ app.post('/api/upload', async (req, res) => {
     if (!quizData || !quizData.questions || quizData.questions.length === 0) {
       return res.status(400).json({ error: 'Valid quiz data is required' });
     }
+
+    currentUploadJob = {
+      running: true,
+      courseId: courseId || '104',
+      targetQuiz: targetQuiz || 'latest',
+      completedCount: 0,
+      totalToUpload: quizData.questions.length,
+      percent: 0,
+      elapsedSec: 0,
+      etaSec: 0,
+      avgPerQ: '--',
+      message: `Connecting to Course ${courseId || '104'}...`,
+      logs: [],
+      completed: false,
+      error: null,
+      url: null,
+      formattedDuration: null,
+      avgSpeed: null
+    };
 
     res.json({ started: true });
 

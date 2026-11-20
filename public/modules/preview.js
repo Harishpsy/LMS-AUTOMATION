@@ -408,23 +408,24 @@ function renderCards(analyzedList) {
 
     // Format question content preserving paragraphs and statements (A, B, C, D)
     let formattedQuestion = '';
-    if (q.questionHtml) {
-      let cleanHtml = q.questionHtml.replace(/<table[\s\S]*?<\/table>/gi, '').trim();
-      // Ensure inline statements like "। A)" or "? B)" break onto new lines cleanly
-      cleanHtml = cleanHtml.replace(/([।\.\?\:]\s*)([A-E]\s*[\)\]])/g, '$1<br/><strong class="statement-prefix">$2</strong> ');
-      formattedQuestion = cleanHtml;
-    } else if (q.questionText) {
-      let text = q.questionText.trim();
-      formattedQuestion = text.replace(/([।\.\?\:]\s*)([A-E]\s*[\)\]])/g, '$1<br/><strong class="statement-prefix">$2</strong> ');
+    let rawContent = q.questionHtml || q.questionText || '';
+    rawContent = rawContent.replace(/<table[\s\S]*?<\/table>/gi, '').trim();
+
+    // Inject #q.number right at the front of the question text so it flows in a straight line
+    const numTag = `<span class="q-num-inline">#${q.number}</span>`;
+    if (/<p[\s>]/i.test(rawContent)) {
+      formattedQuestion = rawContent.replace(/^(\s*<p[^>]*>)/i, `$1${numTag} `);
+    } else if (rawContent) {
+      formattedQuestion = `<p>${numTag} ${rawContent}</p>`;
     } else {
-      formattedQuestion = '<span class="text-danger">⚠️ [Missing Question Text]</span>';
+      formattedQuestion = `<p>${numTag} <span class="text-danger">⚠️ [Missing Question Text]</span></p>`;
     }
+
+    // Ensure inline statements like "। A)" or ". B)" break cleanly onto new lines if not already separated
+    formattedQuestion = formattedQuestion.replace(/([।\.\?\:]\s*)([A-E]\s*[\)\]])/g, '$1<br/><strong class="statement-prefix">$2</strong> ');
 
     card.innerHTML = `
       <div class="q-header-bar">
-        <div class="q-header-left">
-          <span class="q-num-pill">Question #${q.number}</span>
-        </div>
         <div class="q-meta-badges">
           ${vDetail ? (vDetail.verified ? '<span class="pill pill-agent-verified" title="100% verified against raw DOCX source document (prompt, 5 choices, answer key, explanation)">🛡️ DOCX 100% Match</span>' : '<span class="pill pill-issue" title="Verification discrepancy found against source">🛡️ DOCX Mismatch</span>') : ''}
           ${hasIssue ? '<span class="pill pill-issue">⚠️ Has Issues</span>' : '<span class="pill pill-valid">✅ Valid</span>'}
