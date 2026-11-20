@@ -140,7 +140,15 @@ export function initFileManager({ onParsedSuccess } = {}) {
 
         appendLog(`✅ Uploaded & parsed "${uploadedFileBlob.name}" — ${data.totalQuestions} questions found!`, 'success');
 
-        renderQuestionsPreview(data.questions);
+        if (data.verification) {
+          if (data.verification.verified) {
+            appendLog(`🛡️ Verification Agent: 100% Match! All ${data.verification.totalQuestions} questions verified against source DOCX.`, 'success');
+          } else {
+            appendLog(`⚠️ Verification Agent: Score ${data.verification.score}%. ${data.verification.anomalies.length} potential discrepancies detected.`, 'warning');
+          }
+        }
+
+        renderQuestionsPreview(data.questions, data.verification);
         loadMediaGallery(data.uploadedFile);
         loadFiles(); // Refresh workspace dropdown so the uploaded file is visible
 
@@ -186,7 +194,15 @@ export function initFileManager({ onParsedSuccess } = {}) {
 
         appendLog(`Successfully parsed ${data.totalQuestions} questions from document!`, 'success');
 
-        renderQuestionsPreview(data.questions);
+        if (data.verification) {
+          if (data.verification.verified) {
+            appendLog(`🛡️ Verification Agent: 100% Match! All ${data.verification.totalQuestions} questions verified against source DOCX.`, 'success');
+          } else {
+            appendLog(`⚠️ Verification Agent: Score ${data.verification.score}%. ${data.verification.anomalies.length} potential discrepancies detected.`, 'warning');
+          }
+        }
+
+        renderQuestionsPreview(data.questions, data.verification);
         loadMediaGallery(selectedFile);
 
         if (typeof onParsedSuccess === 'function') {

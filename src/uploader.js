@@ -477,6 +477,36 @@ async function uploadQuizQuestions(quizData, options = {}, onProgress = () => { 
   onProgress({ type: 'log', message: 'Verifying LMS session token...', level: 'info' });
   await ensureValidSession((msg) => onProgress({ type: 'log', message: msg, level: 'info' }));
 
+  // ─── Verification: Ensure all questions have 5 choices and selected correct answer ───
+  const rawQuestions = quizData.questions || [];
+  const validationErrors = [];
+  rawQuestions.forEach((q, idx) => {
+    const qNum = q.number || idx + 1;
+    if (!q.options || q.options.length !== 5) {
+      validationErrors.push(`Q#${qNum}: Has ${q.options ? q.options.length : 0}/5 choices`);
+    }
+    const cleanKey = String(q.answerKey || '').trim().toUpperCase();
+    const hasValidKey = /^[1-5]$/.test(cleanKey) || /^[A-E]$/.test(cleanKey);
+    if (!hasValidKey) {
+      validationErrors.push(`Q#${qNum}: No valid correct answer selected (got "${q.answerKey}")`);
+    }
+  });
+
+  if (validationErrors.length > 0) {
+    const summary = validationErrors.slice(0, 3).join('; ') + (validationErrors.length > 3 ? ` (and ${validationErrors.length - 3} more)` : '');
+    onProgress({
+      type: 'log',
+      message: `⚠️ Choice/Answer Notice: ${summary}`,
+      level: 'warning'
+    });
+  } else {
+    onProgress({
+      type: 'log',
+      message: `✅ Pre-upload Verified: All ${rawQuestions.length} questions have 5 choices and confirmed correct answers.`,
+      level: 'success'
+    });
+  }
+
   const browser = await chromium.launch(launchOptions);
 
   try {

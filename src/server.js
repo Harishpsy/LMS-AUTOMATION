@@ -4,6 +4,7 @@ const fs = require('fs');
 const multer = require('multer');
 const { chromium } = require('playwright');
 const { parseQuizDocx } = require('./parser');
+const { verifyDocumentContent } = require('./agents/contentVerificationAgent');
 const { uploadQuizQuestions } = require('./uploader');
 const { ensureAuthenticatedSession, ensureValidSession, getSessionInfo, loginWithCredentials, clearSavedSession } = require('./auth');
 const { generateDailyQuiz, generateFromParsedQuiz } = require('./dailyPdfGenerator');
@@ -349,7 +350,7 @@ app.get('/api/quizzes', async (req, res) => {
 
 /**
  * POST /api/parse
- * Parses an existing .docx file from the workspace
+ * Parses an existing .docx file from the workspace and verifies parsed content against raw DOCX
  */
 app.post('/api/parse', async (req, res) => {
   try {
@@ -361,7 +362,19 @@ app.post('/api/parse', async (req, res) => {
 
     activeAssetsDir = path.join(path.dirname(fullPath), 'extracted_assets');
     const parsedData = await parseQuizDocx(fullPath);
-    res.json(parsedData);
+    
+    // Run Content Verification Agent to compare source DOCX directly with parsed content
+    let verification = null;
+    try {
+      verification = verifyDocumentContent(fullPath, parsedData);
+    } catch (vErr) {
+      console.error('[Verification Agent Error]:', vErr.message);
+    }
+
+    res.json({
+      ...parsedData,
+      verification
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -369,7 +382,7 @@ app.post('/api/parse', async (req, res) => {
 
 /**
  * POST /api/upload-docx
- * Accepts a newly uploaded .docx file and immediately parses it
+ * Accepts a newly uploaded .docx file, parses it, and audits content against raw source
  */
 app.post('/api/upload-docx', (req, res) => {
   upload.single('docxFile')(req, res, async (err) => {
@@ -384,14 +397,44 @@ app.post('/api/upload-docx', (req, res) => {
       const savedPath = req.file.path;
       activeAssetsDir = path.join(path.dirname(savedPath), 'extracted_assets');
       const parsedData = await parseQuizDocx(savedPath);
+
+      // Run Content Verification Agent
+      let verification = null;
+      try {
+        verification = verifyDocumentContent(savedPath, parsedData);
+      } catch (vErr) {
+        console.error('[Verification Agent Error]:', vErr.message);
+      }
+
       res.json({
         ...parsedData,
+        verification,
         uploadedFile: path.relative(ROOT_DIR, savedPath).replace(/\\/g, '/')
       });
     } catch (parseErr) {
       res.status(500).json({ error: parseErr.message });
     }
   });
+});
+
+/**
+ * POST /api/verify-content
+ * Standalone endpoint to audit parsed content against source DOCX
+ */
+app.post('/api/verify-content', async (req, res) => {
+  try {
+    const { filename, quizData } = req.body;
+    if (!filename) return res.status(400).json({ error: 'Filename is required' });
+
+    const fullPath = path.isAbsolute(filename) ? filename : path.join(ROOT_DIR, filename);
+    if (!fs.existsSync(fullPath)) return res.status(404).json({ error: 'File does not exist' });
+
+    const data = quizData || await parseQuizDocx(fullPath);
+    const verification = verifyDocumentContent(fullPath, data);
+    res.json(verification);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 /**

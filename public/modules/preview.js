@@ -11,11 +11,13 @@ const previewHealthBadge = document.getElementById('previewHealthBadge');
 const previewIssueBanner = document.getElementById('previewIssueBanner');
 const previewIssueCountText = document.getElementById('previewIssueCountText');
 const previewIssueSummaryDetails = document.getElementById('previewIssueSummaryDetails');
+const verificationAgentCard = document.getElementById('verificationAgentCard');
 const countFilterAll = document.getElementById('countFilterAll');
 const countFilterIssues = document.getElementById('countFilterIssues');
 const countFilterClean = document.getElementById('countFilterClean');
 
 let currentQuestions = [];
+let currentVerification = null;
 let activeFilter = 'all';
 
 /**
@@ -31,26 +33,42 @@ function analyzeQuestionIssues(q) {
     issues.push('Missing Question Text');
   }
 
-  // 2. Options check
+  // 2. Choices Count Check (Strictly 5 choices required: 1 to 5 / A to E)
   if (!Array.isArray(q.options) || q.options.length === 0) {
-    issues.push('No Options Provided (0 Options)');
-  } else {
-    if (q.options.length < 4) {
-      issues.push(`Incomplete Options (Only ${q.options.length} options found, expected 4 or 5)`);
-    }
-    const emptyOpts = q.options.filter(o => !o.text || !String(o.text).trim());
-    if (emptyOpts.length > 0) {
-      issues.push(`Empty Option Text found (${emptyOpts.map(o => o.label || '?').join(', ')})`);
+    issues.push('Missing Choices: 0 options found (Exactly 5 choices required: 1 to 5 / A to E)');
+  } else if (q.options.length !== 5) {
+    if (q.options.length < 5) {
+      issues.push(`Incomplete Choices: Found only ${q.options.length} choices (Expected exactly 5 choices)`);
+    } else {
+      issues.push(`Excess Choices: Found ${q.options.length} choices (Expected exactly 5 choices)`);
     }
   }
 
-  // 3. Answer Key check
+  // Check for any empty choice text
+  if (Array.isArray(q.options) && q.options.length > 0) {
+    const emptyOpts = q.options.filter(o => !o.text || !String(o.text).trim());
+    if (emptyOpts.length > 0) {
+      issues.push(`Empty Choice Text: Choice ${emptyOpts.map(o => o.label || '?').join(', ')} is blank`);
+    }
+  }
+
+  // 3. Correct Answer Selected Check
   if (!q.answerKey || !String(q.answerKey).trim()) {
-    issues.push('Missing Correct Answer Key (No option selected)');
+    issues.push('Missing Correct Answer: No correct choice selected');
   } else if (Array.isArray(q.options) && q.options.length > 0) {
-    const matched = q.options.some(opt => String(opt.label).trim().toUpperCase() === String(q.answerKey).trim().toUpperCase());
+    const cleanKey = String(q.answerKey).trim().toUpperCase();
+    const matched = q.options.some(opt => {
+      const optLabel = String(opt.label || '').trim().toUpperCase();
+      return optLabel === cleanKey ||
+        (optLabel === '1' && cleanKey === 'A') || (optLabel === '2' && cleanKey === 'B') ||
+        (optLabel === '3' && cleanKey === 'C') || (optLabel === '4' && cleanKey === 'D') ||
+        (optLabel === '5' && cleanKey === 'E') ||
+        (optLabel === 'A' && cleanKey === '1') || (optLabel === 'B' && cleanKey === '2') ||
+        (optLabel === 'C' && cleanKey === '3') || (optLabel === 'D' && cleanKey === '4') ||
+        (optLabel === 'E' && cleanKey === '5');
+    });
     if (!matched) {
-      issues.push(`Answer Key "${q.answerKey}" does not match any existing option label`);
+      issues.push(`Invalid Correct Answer: Answer Key "${q.answerKey}" does not match any of the 5 choices`);
     }
   }
 
@@ -91,13 +109,111 @@ export function getQuestionsHealth() {
 }
 
 /**
+ * Renders the Verification Agent Audit Panel comparing parsed questions against raw DOCX source
+ * @param {object|null} verification 
+ */
+function renderVerificationBanner(verification) {
+  if (!verificationAgentCard) return;
+  if (!verification) {
+    verificationAgentCard.classList.add('hidden');
+    verificationAgentCard.innerHTML = '';
+    return;
+  }
+
+  const isVerified = verification.verified === true;
+  const score = verification.score !== undefined ? verification.score : (isVerified ? 100 : 0);
+  const totalQ = verification.totalQuestions || 0;
+  const matchedQ = verification.matchedQuestions !== undefined ? verification.matchedQuestions : totalQ;
+  const anomalies = Array.isArray(verification.anomalies) ? verification.anomalies : [];
+  const checks = verification.checks || {};
+
+  const qCountPassed = checks.questionCount ? checks.questionCount.passed : isVerified;
+  const promptsPassed = checks.prompts ? checks.prompts.passed : isVerified;
+  const optionsPassed = checks.options ? checks.options.passed : isVerified;
+  const answersPassed = checks.answers ? checks.answers.passed : isVerified;
+  const explPassed = checks.explanations ? checks.explanations.passed : isVerified;
+
+  let anomalyHtml = '';
+  if (anomalies.length > 0) {
+    anomalyHtml = `
+      <div class="agent-anomaly-box">
+        <div class="agent-anomaly-title">
+          <strong>⚠️ Discrepancy Warnings Detected by Verification Agent (${anomalies.length}):</strong>
+        </div>
+        <ul class="agent-anomaly-list">
+          ${anomalies.slice(0, 10).map(a => `<li>${a.message || JSON.stringify(a)}</li>`).join('')}
+          ${anomalies.length > 10 ? `<li><em>...and ${anomalies.length - 10} more items</em></li>` : ''}
+        </ul>
+      </div>
+    `;
+  }
+
+  verificationAgentCard.innerHTML = `
+    <div class="agent-card-inner ${isVerified ? 'verified-pass' : 'verified-warn'}">
+      <div class="agent-card-header">
+        <div class="agent-title-group">
+          <div class="agent-avatar-icon">${isVerified ? '🛡️' : '⚠️'}</div>
+          <div>
+            <div class="agent-main-title">Document Content Verification Agent</div>
+            <div class="agent-subtitle">Automated full-content audit comparing parsed data against raw DOCX source document</div>
+          </div>
+        </div>
+        <div class="agent-score-container">
+          <span class="agent-score-badge ${isVerified ? 'score-100' : 'score-warn'}">
+            ${isVerified ? '✓ 100% Match Verified' : `${score}% Document Match`}
+          </span>
+        </div>
+      </div>
+
+      <div class="agent-metrics-grid">
+        <div class="metric-card ${qCountPassed ? 'metric-pass' : 'metric-warn'}">
+          <div class="metric-label">Question Count</div>
+          <div class="metric-value">${totalQ} / ${verification.sourceQuestionsCount || totalQ}</div>
+          <div class="metric-status">${qCountPassed ? '✓ 100% Matched' : '⚠️ Count Mismatch'}</div>
+        </div>
+
+        <div class="metric-card ${promptsPassed ? 'metric-pass' : 'metric-warn'}">
+          <div class="metric-label">Question Prompts</div>
+          <div class="metric-value">${checks.prompts ? checks.prompts.matched : totalQ} / ${totalQ}</div>
+          <div class="metric-status">${promptsPassed ? '✓ Content Preserved' : '⚠️ Discrepancy Found'}</div>
+        </div>
+
+        <div class="metric-card ${optionsPassed ? 'metric-pass' : 'metric-warn'}">
+          <div class="metric-label">Choices (Strict 5)</div>
+          <div class="metric-value">${checks.options && checks.options.allHave5Choices ? '5 / 5 Each' : 'Issues Found'}</div>
+          <div class="metric-status">${optionsPassed ? '✓ All 5 Choices Match' : '⚠️ Choice Count Incomplete'}</div>
+        </div>
+
+        <div class="metric-card ${answersPassed ? 'metric-pass' : 'metric-warn'}">
+          <div class="metric-label">Correct Answers</div>
+          <div class="metric-value">${checks.answers ? checks.answers.matched : totalQ} / ${totalQ}</div>
+          <div class="metric-status">${answersPassed ? '✓ Keys & Text Match' : '⚠️ Unmatched Keys'}</div>
+        </div>
+
+        <div class="metric-card ${explPassed ? 'metric-pass' : 'metric-warn'}">
+          <div class="metric-label">Solutions & Lists</div>
+          <div class="metric-value">${checks.explanations ? checks.explanations.matched : totalQ} / ${totalQ}</div>
+          <div class="metric-status">${explPassed ? '✓ Sub-items Intact' : '⚠️ Truncated / Missing'}</div>
+        </div>
+      </div>
+
+      ${anomalyHtml}
+    </div>
+  `;
+
+  verificationAgentCard.classList.remove('hidden');
+}
+
+/**
  * Render parsed questions list into preview cards with diagnostic warnings
  * @param {Array} questions
+ * @param {object|null} verification
  * @returns {{ isValid: boolean, totalQuestions: number, questionsWithIssues: number }}
  */
-export function renderQuestionsPreview(questions) {
+export function renderQuestionsPreview(questions, verification = null) {
   if (!questionsList) return { isValid: false };
   currentQuestions = Array.isArray(questions) ? questions : [];
+  currentVerification = verification;
   questionsList.innerHTML = '';
 
   if (previewCountBadge) {
@@ -164,6 +280,7 @@ export function renderQuestionsPreview(questions) {
   }
 
   setupFilterListeners();
+  renderVerificationBanner(verification);
   renderCards(analyzed);
 
   if (previewSection) {
@@ -272,6 +389,22 @@ function renderCards(analyzedList) {
     }
 
     const hasExplanation = q.explanationText && q.explanationText.trim().length > 0;
+    const cleanKey = String(q.answerKey || '').trim().toUpperCase();
+    const hasCorrectChoice = cleanKey && Array.isArray(q.options) && q.options.some(opt => {
+      const optLabel = String(opt.label || '').trim().toUpperCase();
+      return optLabel === cleanKey ||
+        (optLabel === '1' && cleanKey === 'A') || (optLabel === '2' && cleanKey === 'B') ||
+        (optLabel === '3' && cleanKey === 'C') || (optLabel === '4' && cleanKey === 'D') ||
+        (optLabel === '5' && cleanKey === 'E') ||
+        (optLabel === 'A' && cleanKey === '1') || (optLabel === 'B' && cleanKey === '2') ||
+        (optLabel === 'C' && cleanKey === '3') || (optLabel === 'D' && cleanKey === '4') ||
+        (optLabel === 'E' && cleanKey === '5');
+    });
+
+    let vDetail = null;
+    if (currentVerification && Array.isArray(currentVerification.questionDetails)) {
+      vDetail = currentVerification.questionDetails.find(d => d.qNum === q.number) || currentVerification.questionDetails[q.number - 1];
+    }
 
     card.innerHTML = `
       <div class="q-header">
@@ -280,7 +413,10 @@ function renderCards(analyzedList) {
           ${q.questionText ? q.questionText : '<span class="text-danger">⚠️ [Missing Question Text]</span>'}
         </div>
         <div class="q-meta-badges">
+          ${vDetail ? (vDetail.verified ? '<span class="pill pill-agent-verified" title="100% verified against raw DOCX source document (prompt, 5 choices, answer key, explanation)">🛡️ DOCX 100% Match</span>' : '<span class="pill pill-issue" title="Verification discrepancy found against source">🛡️ DOCX Mismatch</span>') : ''}
           ${hasIssue ? '<span class="pill pill-issue">⚠️ Has Issues</span>' : '<span class="pill pill-valid">✅ Valid</span>'}
+          ${q.options && q.options.length === 5 ? '<span class="pill pill-choices">5 Choices ✓</span>' : `<span class="pill pill-issue">${q.options ? q.options.length : 0}/5 Choices</span>`}
+          ${hasCorrectChoice ? `<span class="pill pill-answer">Ans: Choice ${q.answerKey} ✓</span>` : '<span class="pill pill-issue">⚠️ No Answer Selected</span>'}
           ${hasTable ? '<span class="pill pill-table">📊 Has Table</span>' : ''}
           <span class="pill">${q.topic || 'General'}</span>
           <span class="pill">${q.difficulty || 'Easy'}</span>
@@ -310,9 +446,14 @@ function renderCards(analyzedList) {
  */
 export function clearQuestionsPreview() {
   currentQuestions = [];
+  currentVerification = null;
   if (questionsList) questionsList.innerHTML = '';
   if (previewSection) previewSection.classList.add('hidden');
   if (previewIssueBanner) previewIssueBanner.classList.add('hidden');
+  if (verificationAgentCard) {
+    verificationAgentCard.classList.add('hidden');
+    verificationAgentCard.innerHTML = '';
+  }
   if (previewHealthBadge) previewHealthBadge.style.display = 'none';
 }
 
