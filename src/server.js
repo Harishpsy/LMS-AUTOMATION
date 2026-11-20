@@ -238,7 +238,8 @@ app.get('/api/auth-config', (req, res) => {
   try {
     res.json({
       hasCredentials: !!(process.env.LMS_EMAIL && process.env.LMS_PASSWORD),
-      email: process.env.LMS_EMAIL || ''
+      email: process.env.LMS_EMAIL || '',
+      has2FASecret: !!process.env.LMS_2FA_SECRET
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -260,10 +261,11 @@ app.get('/api/auth-status', (req, res) => {
  */
 app.post('/api/auth/login', async (req, res) => {
   try {
-    const { email, password, saveToEnv } = req.body || {};
+    const { email, password, otpOrSecret, saveToEnv } = req.body || {};
     const info = await loginWithCredentials({
       email,
       password,
+      otpOrSecret,
       saveToEnv: saveToEnv !== false,
       headless: true,
       onLog: console.log

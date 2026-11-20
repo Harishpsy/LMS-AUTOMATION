@@ -546,6 +546,23 @@
           </div>
         </div>
 
+        <div class="modal-form-row">
+          <label for="modal2FAInput">
+            Google Authenticator (2FA)
+            <span style="font-size: 11px; font-weight: normal; color: var(--text-muted); margin-left: 6px;">Secret Key or 6-digit OTP</span>
+          </label>
+          <div class="modal-input-wrap">
+            <svg class="modal-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+              <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+              <line x1="12" y1="18" x2="12.01" y2="18"></line>
+            </svg>
+            <input type="text" id="modal2FAInput" placeholder="Enter 2FA Secret Key (saved for auto-login) or 6-digit OTP" autocomplete="one-time-code">
+          </div>
+          <p id="modal2FAHint" class="form-hint" style="font-size: 11px; margin-top: 5px; color: var(--text-muted); line-height: 1.4;">
+            💡 Enter your 2FA Secret Key once to enable 100% automated zero-touch logins, or enter a real-time 6-digit OTP.
+          </p>
+        </div>
+
         <div class="modal-options-row">
           <label class="modal-checkbox-label">
             <input type="checkbox" id="modalRememberCheckbox" checked>

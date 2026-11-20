@@ -1,41 +1,102 @@
 const { chromium } = require('playwright');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 require('dotenv').config();
 
 const STORAGE_PATH = path.join(__dirname, '..', 'storageState.json');
 const ENV_PATH = path.join(__dirname, '..', '.env');
 
 /**
- * Save credentials to .env file and update running process.env
+ * Decodes an RFC 4648 Base32 string into a Buffer
  */
-function saveCredentialsToEnv(email, password) {
+function base32Decode(base32Str) {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  const cleaned = (base32Str || '').toUpperCase().replace(/[\s=-]/g, '');
+  let bits = 0;
+  let value = 0;
+  const bytes = [];
+
+  for (let i = 0; i < cleaned.length; i++) {
+    const idx = alphabet.indexOf(cleaned[i]);
+    if (idx === -1) continue;
+    value = (value << 5) | idx;
+    bits += 5;
+    if (bits >= 8) {
+      bytes.push((value >>> (bits - 8)) & 255);
+      bits -= 8;
+    }
+  }
+  return Buffer.from(bytes);
+}
+
+/**
+ * Generates a 6-digit RFC 6238 TOTP code using HMAC-SHA1 and 30-second time steps
+ */
+function generateTOTP(secret, timeStepSeconds = 30) {
+  if (!secret) return null;
+  const key = base32Decode(secret);
+  if (key.length === 0) return null;
+
+  const epoch = Math.floor(Date.now() / 1000);
+  const counter = Math.floor(epoch / timeStepSeconds);
+
+  const buf = Buffer.alloc(8);
+  buf.writeBigUInt64BE(BigInt(counter));
+
+  const hmac = crypto.createHmac('sha1', key).update(buf).digest();
+  const offset = hmac[hmac.length - 1] & 0x0f;
+  const code = ((hmac[offset] & 0x7f) << 24) |
+               ((hmac[offset + 1] & 0xff) << 16) |
+               ((hmac[offset + 2] & 0xff) << 8) |
+               (hmac[offset + 3] & 0xff);
+
+  const otp = (code % 1000000).toString().padStart(6, '0');
+  return otp;
+}
+
+/**
+ * Save credentials and optional 2FA secret to .env file and update running process.env
+ */
+function saveCredentialsToEnv(email, password, secret2FA) {
   try {
     let envContent = '';
     if (fs.existsSync(ENV_PATH)) {
       envContent = fs.readFileSync(ENV_PATH, 'utf8');
     }
 
-    if (/^LMS_EMAIL=.*/m.test(envContent)) {
-      envContent = envContent.replace(/^LMS_EMAIL=.*/m, `LMS_EMAIL=${email}`);
-    } else {
-      envContent += `\nLMS_EMAIL=${email}`;
+    if (email) {
+      if (/^LMS_EMAIL=.*/m.test(envContent)) {
+        envContent = envContent.replace(/^LMS_EMAIL=.*/m, `LMS_EMAIL=${email}`);
+      } else {
+        envContent += `\nLMS_EMAIL=${email}`;
+      }
+      process.env.LMS_EMAIL = email;
     }
 
-    if (/^LMS_PASSWORD=.*/m.test(envContent)) {
-      envContent = envContent.replace(/^LMS_PASSWORD=.*/m, `LMS_PASSWORD=${password}`);
-    } else {
-      envContent += `\nLMS_PASSWORD=${password}`;
+    if (password) {
+      if (/^LMS_PASSWORD=.*/m.test(envContent)) {
+        envContent = envContent.replace(/^LMS_PASSWORD=.*/m, `LMS_PASSWORD=${password}`);
+      } else {
+        envContent += `\nLMS_PASSWORD=${password}`;
+      }
+      process.env.LMS_PASSWORD = password;
+    }
+
+    if (secret2FA !== undefined && secret2FA !== null && secret2FA !== '') {
+      const cleanSecret = secret2FA.toUpperCase().replace(/[\s=-]/g, '');
+      if (/^LMS_2FA_SECRET=.*/m.test(envContent)) {
+        envContent = envContent.replace(/^LMS_2FA_SECRET=.*/m, `LMS_2FA_SECRET=${cleanSecret}`);
+      } else {
+        envContent += `\nLMS_2FA_SECRET=${cleanSecret}`;
+      }
+      process.env.LMS_2FA_SECRET = cleanSecret;
     }
 
     fs.writeFileSync(ENV_PATH, envContent.trim() + '\n', 'utf8');
-    process.env.LMS_EMAIL = email;
-    process.env.LMS_PASSWORD = password;
     return true;
   } catch (err) {
     console.error('Failed to update .env:', err.message);
-    process.env.LMS_EMAIL = email;
-    process.env.LMS_PASSWORD = password;
     return false;
   }
 }
@@ -58,7 +119,7 @@ function clearSavedSession() {
  */
 function getSessionInfo() {
   if (!fs.existsSync(STORAGE_PATH)) {
-    return { exists: false, isExpired: true, minutesRemaining: 0, user: null, email: null };
+    return { exists: false, isExpired: true, minutesRemaining: 0, user: null, email: null, has2FASecret: !!process.env.LMS_2FA_SECRET };
   }
 
   try {
@@ -67,7 +128,7 @@ function getSessionInfo() {
     const userItem = data.origins?.[0]?.localStorage?.find(x => x.name === 'authorizedUserDetails');
 
     if (!userItem || !userItem.value) {
-      return { exists: true, isExpired: true, minutesRemaining: 0, user: null, email: null };
+      return { exists: true, isExpired: true, minutesRemaining: 0, user: null, email: null, has2FASecret: !!process.env.LMS_2FA_SECRET };
     }
 
     const details = JSON.parse(userItem.value);
@@ -88,10 +149,117 @@ function getSessionInfo() {
       expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
       minutesRemaining,
       user: userName,
-      email
+      email,
+      has2FASecret: !!process.env.LMS_2FA_SECRET
     };
   } catch (err) {
-    return { exists: true, isExpired: true, minutesRemaining: 0, user: null, email: null, error: err.message };
+    return { exists: true, isExpired: true, minutesRemaining: 0, user: null, email: null, has2FASecret: !!process.env.LMS_2FA_SECRET, error: err.message };
+  }
+}
+
+/**
+ * Automatically detects and solves Google Authenticator (2FA / TOTP) prompt if shown
+ */
+async function handleTwoFactorAuthentication(page, { otpCode, secretKey, onLog = console.log } = {}) {
+  // Check if 2FA verification screen or setup screen is displayed
+  const is2FAPage = await page.evaluate(() => {
+    return !!(
+      document.querySelector('.totp-digit-input') ||
+      document.body.innerText.includes('Two-factor authentication') ||
+      document.body.innerText.includes('Enter the code from your authenticator app') ||
+      document.body.innerText.includes('Authenticator code') ||
+      document.body.innerText.includes('Can\'t scan it? Enter this setup key manually:')
+    );
+  });
+
+  if (!is2FAPage) {
+    return false; // Not a 2FA page
+  }
+
+  onLog('📱 Google Authenticator (2FA) verification screen detected.');
+
+  // Check if it's the initial 2FA setup screen with a manual setup key
+  let secret = (secretKey || process.env.LMS_2FA_SECRET || '').trim();
+  const setupKeyFound = await page.evaluate(() => {
+    const text = document.body.innerText;
+    const match = text.match(/Enter this setup key manually:\s*([A-Z0-9\s]{16,40})/i) ||
+                  text.match(/setup key manually:[\s\S]*?([A-Z2-7\s]{16,40})/i);
+    if (match && match[1]) {
+      return match[1].replace(/\s+/g, '');
+    }
+    const codeEl = document.querySelector('.setup-key, code, strong.key, [data-setup-key]');
+    if (codeEl && /^[A-Z2-7]{16,40}$/i.test(codeEl.innerText.trim().replace(/\s+/g, ''))) {
+      return codeEl.innerText.trim().replace(/\s+/g, '');
+    }
+    return null;
+  });
+
+  if (setupKeyFound) {
+    onLog(`🔑 Auto-extracted 2FA setup secret key from page: ${setupKeyFound.slice(0, 4)}••••${setupKeyFound.slice(-4)}`);
+    secret = setupKeyFound;
+    process.env.LMS_2FA_SECRET = secret;
+    saveCredentialsToEnv(process.env.LMS_EMAIL, process.env.LMS_PASSWORD, secret);
+  }
+
+  // Determine the 6-digit OTP code: either passed directly or computed from secret
+  let otp = (otpCode || '').trim();
+  if (!otp || !/^\d{6}$/.test(otp)) {
+    if (secret) {
+      otp = generateTOTP(secret);
+      onLog(`⚡ Generated active RFC 6238 TOTP code: ${otp.slice(0, 3)}***`);
+    } else {
+      throw new Error('Google Authenticator (2FA) is required. Please provide your 2FA Secret Key or current 6-digit OTP in the credentials modal.');
+    }
+  }
+
+  // Type the 6 digits into the .totp-digit-input inputs
+  const digitInputs = page.locator('.totp-digit-input');
+  const count = await digitInputs.count();
+  if (count === 6) {
+    for (let i = 0; i < 6; i++) {
+      await digitInputs.nth(i).click();
+      await digitInputs.nth(i).fill(otp[i]);
+    }
+  } else if (count > 0) {
+    await digitInputs.first().fill(otp);
+  } else {
+    const fallbackInput = page.locator('input[type="text"]:visible, input[name*="otp"], input[name*="code"]');
+    if (await fallbackInput.count() > 0) {
+      await fallbackInput.first().fill(otp);
+    }
+  }
+
+  await page.waitForTimeout(400);
+
+  // Click "VERIFY AND SIGN IN"
+  const verifyBtn = page.locator('button:has-text("VERIFY AND SIGN IN"), button.loginbbt, button[type="submit"]:has-text("VERIFY")').first();
+  await verifyBtn.click();
+
+  // Wait for navigation / redirect away or error
+  try {
+    await page.waitForFunction(() => {
+      return !document.querySelector('.totp-digit-input') &&
+             !document.body.innerText.includes('Enter the code from your authenticator app') &&
+             (window.location.pathname.includes('/courses') ||
+              window.location.pathname.includes('/dashboard') ||
+              window.location.pathname.includes('/media-library') ||
+              window.location.pathname.includes('/view'));
+    }, { timeout: 15000 });
+    onLog('✅ 2FA verification passed successfully!');
+    return true;
+  } catch (e) {
+    const errMsg = await page.evaluate(() => {
+      const el = document.querySelector('.error-message, .alert-danger, .toast-error, .text-danger, .ant-alert-message');
+      return el ? el.innerText.trim() : null;
+    });
+    if (errMsg) {
+      throw new Error(`2FA Verification Failed: ${errMsg}`);
+    }
+    const still2FA = await page.evaluate(() => !!document.querySelector('.totp-digit-input'));
+    if (still2FA) {
+      throw new Error('2FA verification timed out or code was rejected. Please ensure system clock is synchronized or verify 2FA secret/code.');
+    }
+    return true;
   }
 }
 
@@ -104,10 +272,24 @@ async function loginWithCredentials({
   onLog = console.log,
   email: customEmail,
   password: customPassword,
+  otpOrSecret,
+  secret2FA,
   saveToEnv = true
 } = {}) {
   const email = (customEmail || process.env.LMS_EMAIL || '').trim();
   const password = (customPassword || process.env.LMS_PASSWORD || '').trim();
+
+  let otpCode = null;
+  let secretKey = (secret2FA || process.env.LMS_2FA_SECRET || '').trim();
+
+  if (otpOrSecret) {
+    const trimmed = otpOrSecret.trim().replace(/\s+/g, '');
+    if (/^\d{6}$/.test(trimmed)) {
+      otpCode = trimmed;
+    } else if (/^[A-Za-z0-9]{16,40}$/.test(trimmed)) {
+      secretKey = trimmed.toUpperCase();
+    }
+  }
 
   if (!email || !password) {
     throw new Error('Email and password are required to log in.');
@@ -129,15 +311,18 @@ async function loginWithCredentials({
     await page.fill('#admin-password', password);
     await page.click('button[type="submit"], button.loginbbt');
 
-    // Wait for redirect away from login page or detect error
+    // Wait for redirect away from login page or detect 2FA screen or error
     try {
       await page.waitForFunction(() => {
-        return !document.querySelector('#admin-email') &&
-               (window.location.pathname.includes('/courses') ||
-                window.location.pathname.includes('/media-library') ||
-                window.location.pathname.includes('/dashboard') ||
-                window.location.pathname.includes('/view'));
-      }, { timeout: 20000 });
+        return !!document.querySelector('.totp-digit-input') ||
+               document.body.innerText.includes('Two-factor authentication') ||
+               document.body.innerText.includes('Can\'t scan it? Enter this setup key manually:') ||
+               (!document.querySelector('#admin-email') &&
+                (window.location.pathname.includes('/courses') ||
+                 window.location.pathname.includes('/media-library') ||
+                 window.location.pathname.includes('/dashboard') ||
+                 window.location.pathname.includes('/view')));
+      }, { timeout: 25000 });
     } catch (e) {
       // Check if error message is displayed on login page
       const errorMsg = await page.evaluate(() => {
@@ -152,6 +337,9 @@ async function loginWithCredentials({
       }
     }
 
+    // Solve 2FA if 2FA verification screen or setup screen is displayed
+    await handleTwoFactorAuthentication(page, { otpCode, secretKey, onLog });
+
     // Allow cookies & tokens to settle
     await page.waitForTimeout(2000);
     await context.storageState({ path: STORAGE_PATH });
@@ -162,12 +350,13 @@ async function loginWithCredentials({
       throw new Error('Authentication finished but valid session token was not detected. Please verify credentials.');
     }
 
-    // Persist credentials
+    // Persist credentials & 2FA secret
     if (saveToEnv) {
-      saveCredentialsToEnv(email, password);
+      saveCredentialsToEnv(email, password, secretKey);
     } else {
       process.env.LMS_EMAIL = email;
       process.env.LMS_PASSWORD = password;
+      if (secretKey) process.env.LMS_2FA_SECRET = secretKey;
     }
 
     onLog(`✅ New session token saved for ${info.user} successfully!`);
@@ -225,9 +414,13 @@ async function ensureAuthenticatedSession(page, context, onLog = console.log) {
   await page.fill('#admin-password', password);
   await page.click('button[type="submit"], button.loginbbt');
 
-  await page.waitForTimeout(3000);
+  await page.waitForTimeout(2000);
+  await handleTwoFactorAuthentication(page, { secretKey: process.env.LMS_2FA_SECRET, onLog });
+
   await page.waitForFunction(() => {
-    return !document.querySelector('#admin-email') && !document.querySelector('button.loginbbt');
+    return !document.querySelector('#admin-email') &&
+           !document.querySelector('button.loginbbt') &&
+           !document.querySelector('.totp-digit-input');
   }, { timeout: 20000 });
 
   if (context) {
@@ -286,5 +479,8 @@ module.exports = {
   ensureValidSession,
   ensureAuthenticatedSession,
   getAuthenticatedPage,
+  generateTOTP,
+  base32Decode,
+  handleTwoFactorAuthentication,
   STORAGE_PATH
 };

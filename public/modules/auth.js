@@ -23,6 +23,8 @@ const loginBtnSpinner = document.getElementById('loginBtnSpinner');
 const loginBtnText = document.getElementById('loginBtnText');
 const modalEmailInput = document.getElementById('modalEmailInput');
 const modalPasswordInput = document.getElementById('modalPasswordInput');
+const modal2FAInput = document.getElementById('modal2FAInput');
+const modal2FAHint = document.getElementById('modal2FAHint');
 const modalRememberCheckbox = document.getElementById('modalRememberCheckbox');
 const modalLoginAlert = document.getElementById('modalLoginAlert');
 const btnTogglePasswordVisibility = document.getElementById('btnTogglePasswordVisibility');
@@ -102,18 +104,29 @@ export async function openLoginModal() {
   loginModal.classList.remove('hidden');
   hideModalAlert();
 
-  // Prefill email if empty
-  if (modalEmailInput && !modalEmailInput.value) {
-    try {
-      const res = await fetch('/api/auth-config');
-      const data = await res.json();
-      if (data.email) {
-        modalEmailInput.value = data.email;
-        if (modalPasswordInput) modalPasswordInput.focus();
-        return;
+  // Prefill credentials & check 2FA status
+  try {
+    const res = await fetch('/api/auth-config');
+    const data = await res.json();
+    if (data.email && modalEmailInput && !modalEmailInput.value) {
+      modalEmailInput.value = data.email;
+    }
+    if (data.has2FASecret && modal2FAInput) {
+      modal2FAInput.value = '';
+      modal2FAInput.placeholder = '●●●●●●●● (2FA Secret Saved in .env — Auto Active)';
+      if (modal2FAHint) {
+        modal2FAHint.textContent = '🔒 2FA Secret Key is saved in .env. Automated TOTP generation is active. Leave blank to keep existing secret, or enter a new one to replace.';
       }
-    } catch (e) {}
-    if (modalEmailInput) modalEmailInput.focus();
+    } else if (modal2FAInput) {
+      modal2FAInput.placeholder = 'Enter 2FA Secret Key (saved for auto-login) or 6-digit OTP';
+      if (modal2FAHint) {
+        modal2FAHint.textContent = '💡 Enter your 2FA Secret Key once to enable 100% automated zero-touch logins, or enter a real-time 6-digit OTP.';
+      }
+    }
+  } catch (e) {}
+
+  if (modalEmailInput && !modalEmailInput.value) {
+    modalEmailInput.focus();
   } else if (modalPasswordInput) {
     modalPasswordInput.focus();
   }
@@ -155,6 +168,7 @@ function togglePasswordVisibility() {
 export async function submitLmsLogin() {
   const email = modalEmailInput ? modalEmailInput.value.trim() : '';
   const password = modalPasswordInput ? modalPasswordInput.value.trim() : '';
+  const otpOrSecret = modal2FAInput ? modal2FAInput.value.trim() : '';
   const remember = modalRememberCheckbox ? modalRememberCheckbox.checked : true;
 
   if (!email || !password) {
@@ -174,7 +188,7 @@ export async function submitLmsLogin() {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, saveToEnv: remember })
+      body: JSON.stringify({ email, password, otpOrSecret, saveToEnv: remember })
     });
 
     const data = await res.json();
@@ -192,6 +206,7 @@ export async function submitLmsLogin() {
     setTimeout(() => {
       closeLoginModal();
       if (modalPasswordInput) modalPasswordInput.value = '';
+      if (modal2FAInput) modal2FAInput.value = '';
     }, 900);
 
   } catch (err) {
@@ -245,7 +260,7 @@ export function initAuth() {
     btnSubmitLogin.addEventListener('click', submitLmsLogin);
   }
 
-  [modalEmailInput, modalPasswordInput].forEach(inp => {
+  [modalEmailInput, modalPasswordInput, modal2FAInput].forEach(inp => {
     if (inp) {
       inp.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
