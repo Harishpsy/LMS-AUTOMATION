@@ -237,24 +237,27 @@ function buildQuestionsFragmentXml(questions, isTopicWise = true, isHindi = fals
 
   let xml = '';
   let globalNum = 1;
+  let isFirstSection = true;
 
   for (const sectionTitle of sortedSectionTitles) {
     const qs = sections[sectionTitle];
     if (!qs || qs.length === 0) continue;
 
     const cleanTitle = sectionTitle.replace(/\s*\(\d+\s*(?:Questions|Q|प्रश्न)\)/gi, '').trim();
-    const countLabel = isHindi ? `(${qs.length} प्रश्न)` : `(${qs.length} Questions)`;
-    const sectionHeading = `${cleanTitle} ${countLabel}`;
-    xml += buildSectionHeaderXml(sectionHeading);
+
+    if (isFirstSection) {
+      // Content starts on a fresh new page following the Index / Important Notice front-matter
+      xml += '<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/></w:pPr><w:r><w:br w:type="page"/></w:r></w:p>';
+      isFirstSection = false;
+    }
+
+    xml += buildSectionHeaderXml(cleanTitle);
 
     qs.forEach((q, qIndex) => {
-      // Clean single blank line separator between consecutive questions within a section
-      if (qIndex > 0) {
-        xml += '<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="220" w:lineRule="auto"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:pPr></w:p>';
-      }
-
       const qNum = isTopicWise ? (qIndex + 1) : globalNum++;
-      xml += buildQuestionXml(qNum, q.questionText, hyperlinkRegistry, 40, isHindi);
+      // Standard inter-question spacing via w:before on the question paragraph itself (suppressed at top-of-page by Word)
+      const spaceBefore = (qIndex === 0) ? 0 : 160;
+      xml += buildQuestionXml(qNum, q.questionText, hyperlinkRegistry, spaceBefore, isHindi);
 
       if (q.statements && q.statements.length > 0) {
         for (const st of q.statements) {
@@ -264,8 +267,8 @@ function buildQuestionsFragmentXml(questions, isTopicWise = true, isHindi = fals
 
       if (q.options && q.options.length > 0) {
         q.options.forEach((opt, optIdx) => {
-          const keepNext = optIdx < q.options.length - 1;
-          xml += buildOptionXml(opt, keepNext, '', isHindi);
+          // Do NOT chain options with keepNext: allows natural page flow and eliminates large white space gaps
+          xml += buildOptionXml(opt, false, '', isHindi);
         });
       }
 
@@ -383,8 +386,7 @@ function injectQuestionsIntoTemplate({
       const qs = tocSections[st];
       if (!qs || qs.length === 0) return;
       const cleanTitle = st.replace(/\s*\(\d+\s*(?:Questions|Q|प्रश्न)\)/gi, '').trim();
-      const countLabel = isHindi ? `(${qs.length} प्रश्न)` : `(${qs.length} Questions)`;
-      const titleText = `${cleanTitle} ${countLabel}`;
+      const titleText = cleanTitle;
       const isFirst = idx === 0;
       const isLast = idx === sortedTocSectionTitles.length - 1;
 

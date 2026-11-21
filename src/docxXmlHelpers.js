@@ -25,7 +25,7 @@ function getRPrBold(isHindi = false) {
  */
 function buildAnswerXml(answer, isHindi = false) {
   const prefix = isHindi ? 'उत्तर – ' : 'Answer- ';
-  return `<w:p><w:pPr><w:keepLines/><w:spacing w:before="80" w:after="40" w:line="276" w:lineRule="auto"/><w:rPr>${getRPrBase(isHindi)}</w:rPr></w:pPr><w:r><w:rPr>${getRPrBase(isHindi)}</w:rPr><w:t xml:space="preserve">${prefix}</w:t></w:r><w:r><w:rPr>${getRPrBold(isHindi)}</w:rPr><w:t xml:space="preserve">${escapeXml(answer)}</w:t></w:r></w:p>`;
+  return `<w:p><w:pPr><w:spacing w:before="60" w:after="30" w:line="276" w:lineRule="auto"/><w:rPr>${getRPrBase(isHindi)}</w:rPr></w:pPr><w:r><w:rPr>${getRPrBase(isHindi)}</w:rPr><w:t xml:space="preserve">${prefix}</w:t></w:r><w:r><w:rPr>${getRPrBold(isHindi)}</w:rPr><w:t xml:space="preserve">${escapeXml(answer)}</w:t></w:r></w:p>`;
 }
 
 /**
@@ -153,7 +153,7 @@ function buildExplanationXml(explanation, isHindi = false, tableMap = {}, hyperl
  * Supports attaching a floating promotional banner run directly into Choice 1.
  */
 function buildOptionXml(option, keepNext = false, bannerRunXml = '', isHindi = false) {
-  const pPrKeep = keepNext ? '<w:keepNext/><w:keepLines/>' : '<w:keepLines/>';
+  const pPrKeep = keepNext ? '<w:keepNext/><w:keepLines/>' : '';
   const banner = bannerRunXml || '';
   return `<w:p><w:pPr>${pPrKeep}<w:spacing w:before="20" w:after="20" w:line="276" w:lineRule="auto"/><w:rPr>${getRPrBase(isHindi)}</w:rPr></w:pPr><w:r><w:rPr>${getRPrBase(isHindi)}</w:rPr><w:t xml:space="preserve">${escapeXml(option)}</w:t></w:r>${banner}</w:p>`;
 }
@@ -164,7 +164,7 @@ function buildOptionXml(option, keepNext = false, bannerRunXml = '', isHindi = f
  */
 function buildQuestionXml(num, text, hyperlinkRegistry = null, spaceBefore = 40, isHindi = false) {
   const content = renderRunsWithBold(text, true, hyperlinkRegistry, isHindi);
-  return `<w:p><w:pPr><w:keepNext/><w:keepLines/><w:spacing w:before="${spaceBefore}" w:after="40" w:line="276" w:lineRule="auto"/><w:rPr>${getRPrBold(isHindi)}</w:rPr></w:pPr><w:r><w:rPr>${getRPrBold(isHindi)}</w:rPr><w:t xml:space="preserve">${num}.  </w:t></w:r>${content}</w:p>`;
+  return `<w:p><w:pPr><w:keepNext/><w:spacing w:before="${spaceBefore}" w:after="30" w:line="276" w:lineRule="auto"/><w:rPr>${getRPrBold(isHindi)}</w:rPr></w:pPr><w:r><w:rPr>${getRPrBold(isHindi)}</w:rPr><w:t xml:space="preserve">${num}.  </w:t></w:r>${content}</w:p>`;
 }
 
 /**
@@ -184,7 +184,7 @@ function buildStatementXml(statement, tableMap = {}, hyperlinkRegistry = null, k
     return tableMap[trimmed];
   }
   const runs = renderRunsWithBold(statement, true, hyperlinkRegistry, isHindi);
-  const pPrKeep = keepNext ? '<w:keepNext/><w:keepLines/>' : '<w:keepLines/>';
+  const pPrKeep = keepNext ? '<w:keepNext/><w:keepLines/>' : '';
   return `<w:p><w:pPr>${pPrKeep}<w:spacing w:before="30" w:after="30" w:line="276" w:lineRule="auto"/><w:rPr>${getRPrBold(isHindi)}</w:rPr></w:pPr>${runs}</w:p>`;
 }
 
