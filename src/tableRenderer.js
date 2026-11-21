@@ -1,4 +1,5 @@
 const { chromium } = require('playwright');
+const { launchChromium } = require('./browserLauncher');
 const fs = require('fs');
 const path = require('path');
 
@@ -6,7 +7,7 @@ let browserInstance = null;
 
 async function getBrowser() {
   if (!browserInstance) {
-    browserInstance = await chromium.launch({ headless: true });
+    browserInstance = await launchChromium({ headless: true });
   }
   return browserInstance;
 }

@@ -1,4 +1,5 @@
 const { chromium } = require('playwright');
+const { launchChromium } = require('./browserLauncher');
 const fs = require('fs');
 const path = require('path');
 
@@ -13,12 +14,12 @@ async function loginInteractive() {
 
   let browser;
   try {
-    browser = await chromium.launch({
+    browser = await launchChromium({
       headless: false,
       args: ['--start-maximized']
     });
   } catch (err) {
-    browser = await chromium.launch({ headless: false });
+    browser = await launchChromium({ headless: false });
   }
 
   const context = await browser.newContext({ viewport: null });

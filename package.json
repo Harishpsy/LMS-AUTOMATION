@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "npx playwright install --with-deps chromium",
+    "build": "node scripts/build.js",
     "login": "node src/interactive-login.js",
     "parse": "node src/parser.js",
     "upload": "node src/uploader.js",

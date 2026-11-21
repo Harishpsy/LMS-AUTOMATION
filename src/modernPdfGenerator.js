@@ -24,6 +24,7 @@ const fs = require('fs');
 const path = require('path');
 const { PDFDocument, rgb, StandardFonts, PDFName, PDFString } = require('pdf-lib');
 const { chromium } = require('playwright');
+const { launchChromium } = require('./browserLauncher');
 const {
   parseDailySource,
   standardizeQuestions,
@@ -716,7 +717,7 @@ async function generateModernDailyPdf(sourceFilePath, onLog) {
 
   // 2. Run Playwright to paginate and print transparent PDF
   log({ type: 'info', message: '🎨 Paginating modern question cards with Playwright engine...' });
-  const browser = await chromium.launch({
+  const browser = await launchChromium({
     headless: true,
     args: [
       '--disable-font-subpixel-positioning',

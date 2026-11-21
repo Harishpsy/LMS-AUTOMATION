@@ -1,8 +1,12 @@
+// Set Playwright browser cache inside project so it persists across Render build & runtime
+process.env.PLAYWRIGHT_BROWSERS_PATH = process.env.PLAYWRIGHT_BROWSERS_PATH || '0';
+
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const { chromium } = require('playwright');
+const { launchChromium } = require('./browserLauncher');
 const { parseQuizDocx } = require('./parser');
 const { verifyDocumentContent } = require('./agents/contentVerificationAgent');
 const { uploadQuizQuestions } = require('./uploader');
@@ -379,7 +383,7 @@ app.get('/api/quizzes', async (req, res) => {
     // Proactively verify and renew expired token before opening page
     await ensureValidSession(console.log);
 
-    browser = await chromium.launch({ headless: true });
+    browser = await launchChromium({ headless: true });
     const context = await browser.newContext({ storageState: STORAGE_PATH });
     const page = await context.newPage();
 

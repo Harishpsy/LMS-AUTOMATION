@@ -1,4 +1,5 @@
 const { chromium } = require('playwright');
+const { launchChromium } = require('./browserLauncher');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -297,7 +298,7 @@ async function loginWithCredentials({
 
   onLog(`🔐 Logging in to CareersCloud LMS as ${email}...`);
 
-  const browser = await chromium.launch({ headless });
+  const browser = await launchChromium({ headless });
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
   const page = await context.newPage();
 
@@ -438,7 +439,7 @@ async function getAuthenticatedPage(options = { headless: false }) {
   // Proactively refresh token if expired
   await ensureValidSession();
 
-  const browser = await chromium.launch({
+  const browser = await launchChromium({
     headless: options.headless !== undefined ? options.headless : false,
     slowMo: 100
   });

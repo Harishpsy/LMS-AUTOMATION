@@ -1,4 +1,5 @@
 const { chromium } = require('playwright');
+const { launchChromium } = require('./browserLauncher');
 const path = require('path');
 const fs = require('fs');
 require('dotenv').config();
@@ -507,7 +508,7 @@ async function uploadQuizQuestions(quizData, options = {}, onProgress = () => { 
     });
   }
 
-  const browser = await chromium.launch(launchOptions);
+  const browser = await launchChromium(launchOptions);
 
   try {
     // ─── Step 1: Discover / Lock Target Quiz ID ─────────────────────────
