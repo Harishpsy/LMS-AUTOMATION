@@ -238,6 +238,7 @@ function buildQuestionsFragmentXml(questions, isTopicWise = true, isHindi = fals
   let xml = '';
   let globalNum = 1;
   let isFirstSection = true;
+  let sectionIndex = 0;
 
   for (const sectionTitle of sortedSectionTitles) {
     const qs = sections[sectionTitle];
@@ -251,7 +252,16 @@ function buildQuestionsFragmentXml(questions, isTopicWise = true, isHindi = fals
       isFirstSection = false;
     }
 
-    xml += buildSectionHeaderXml(cleanTitle);
+    const bId = 2000 + sectionIndex + 1;
+    const bName = `_Sec_${sectionIndex + 1}`;
+    sectionIndex++;
+
+    const headerXml = buildSectionHeaderXml(cleanTitle);
+    const headerWithBookmark = headerXml.replace(
+      /(<w:pPr>[\s\S]*?<\/w:pPr>)/,
+      `$1<w:bookmarkStart w:id="${bId}" w:name="${bName}"/><w:bookmarkEnd w:id="${bId}"/>`
+    );
+    xml += headerWithBookmark;
 
     qs.forEach((q, qIndex) => {
       const qNum = isTopicWise ? (qIndex + 1) : globalNum++;
@@ -351,8 +361,8 @@ function injectQuestionsIntoTemplate({
   if (dateString) {
     const cleanDate = dateString.replace(/^DAILY\s+(?:CA\s+)?QUIZ[:\s\-]*/i, '').trim();
     const newTitle = isHindi
-      ? `Current Affairs Hindi Q&amp;A PDF – ${escapeXml(cleanDate)}`
-      : `Current Affairs Q&amp;A PDF – ${escapeXml(cleanDate)}`;
+      ? `Current Affairs Monthly Hindi Q&amp;A PDF – ${escapeXml(cleanDate)}`
+      : `Current Affairs Monthly Q&amp;A PDF – ${escapeXml(cleanDate)}`;
 
     // A. Configure Table of Contents to dynamically index all Topic sections (Heading 2)
     xml = xml.replace(
@@ -373,7 +383,8 @@ function injectQuestionsIntoTemplate({
     // Rebuild static TOC entries for each section present in questions
     const tocSections = {};
     questions.forEach(q => {
-      const s = (q.section || 'NATIONAL AFFAIRS').toUpperCase();
+      const rawSec = q.section || q.topic || 'NATIONAL AFFAIRS';
+      const s = normalizeSection(rawSec);
       if (!tocSections[s]) tocSections[s] = [];
       tocSections[s].push(q);
     });
@@ -386,14 +397,9 @@ function injectQuestionsIntoTemplate({
       const qs = tocSections[st];
       if (!qs || qs.length === 0) return;
       const cleanTitle = st.replace(/\s*\(\d+\s*(?:Questions|Q|प्रश्न)\)/gi, '').trim();
-      const titleText = cleanTitle;
-      const isFirst = idx === 0;
-      const isLast = idx === sortedTocSectionTitles.length - 1;
-
-      const beginField = isFirst ? '<w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText xml:space="preserve"> TOC \\t "Heading 2,1" \\h \\z \\u </w:instrText></w:r><w:r><w:fldChar w:fldCharType="separate"/></w:r>' : '';
-      const endField = isLast ? '<w:r><w:fldChar w:fldCharType="end"/></w:r>' : '';
-
-      newTocEntriesXml += `<w:p><w:pPr><w:pStyle w:val="TOC1"/><w:rPr><w:rFonts w:ascii="Cambria" w:hAnsi="Cambria"/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr></w:pPr>${beginField}<w:hyperlink w:history="1"><w:r><w:rPr><w:rStyle w:val="Hyperlink"/><w:rFonts w:ascii="Cambria" w:hAnsi="Cambria"/><w:b/></w:rPr><w:t>${escapeXml(titleText)}</w:t></w:r><w:r><w:tab/></w:r><w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText xml:space="preserve"> PAGEREF _Toc${idx + 1} \\h </w:instrText></w:r><w:r><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:t></w:t></w:r><w:r><w:fldChar w:fldCharType="end"/></w:r></w:hyperlink>${endField}</w:p>`;
+      const countLabel = isHindi ? `(${qs.length} प्रश्न)` : `(${qs.length} Questions)`;
+      const titleText = `${cleanTitle} ${countLabel}`;
+      newTocEntriesXml += `<w:p><w:pPr><w:pStyle w:val="TOC1"/><w:rPr><w:rFonts w:ascii="Cambria" w:hAnsi="Cambria"/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr></w:pPr><w:hyperlink w:anchor="_Sec_${idx + 1}" w:history="1"><w:r><w:rPr><w:rFonts w:ascii="Cambria" w:hAnsi="Cambria"/><w:b/><w:color w:val="000000"/><w:u w:val="none"/></w:rPr><w:t>${escapeXml(titleText)}</w:t></w:r><w:r><w:tab/></w:r><w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText xml:space="preserve"> PAGEREF _Sec_${idx + 1} \\h </w:instrText></w:r><w:r><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:t></w:t></w:r><w:r><w:fldChar w:fldCharType="end"/></w:r></w:hyperlink></w:p>`;
     });
 
     const tocHeadingMatch = xml.match(/<w:p[ >][\s\S]*?<w:pStyle w:val="TOCHeading"[\s\S]*?<\/w:p>/);
@@ -415,14 +421,27 @@ function injectQuestionsIntoTemplate({
       }
     }
 
-    // C. Replace the Main Heading 1 Title Banner (pStyle="Heading1")
-    const heading1Regex = /(<w:p[^>]*><w:pPr><w:pStyle w:val="Heading1"[\s\S]*?<\/w:pPr>)([\s\S]*?)(<\/w:p>)/;
-    xml = xml.replace(heading1Regex, (match, pPr, body, close) => {
-      const bStart = (body.match(/<w:bookmarkStart[^>]*\/>/g) || []).join('');
-      const bEnd = (body.match(/<w:bookmarkEnd[^>]*\/>/g) || []).join('');
-      const newRun = `<w:r w:rsidRPr="001A3FD1"><w:rPr><w:rFonts w:ascii="Cambria" w:hAnsi="Cambria"/><w:b/><w:bCs/><w:color w:val="FF0000"/><w:sz w:val="40"/><w:szCs w:val="40"/></w:rPr><w:lastRenderedPageBreak/><w:t>${newTitle}</w:t></w:r>`;
-      return pPr + bStart + newRun + bEnd + close;
-    });
+    // C. Replace the Main Title Banner (Page 4 Title: "Current Affairs [Monthly] Q&A PDF – [Month Year]")
+    const titleBannerRegex = /(<w:p\b[^>]*>(?:(?!<\/w:p>)[\s\S])*?Current Affairs(?:(?!<\/w:p>)[\s\S])*?(?:Monthly\s+)?Q&amp;A\s+PDF[\s\S]*?<\/w:p>)/i;
+    if (titleBannerRegex.test(xml)) {
+      xml = xml.replace(titleBannerRegex, (match) => {
+        const pPrMatch = match.match(/<w:pPr>[\s\S]*?<\/w:pPr>/);
+        const pPr = pPrMatch ? pPrMatch[0] : '<w:pPr><w:jc w:val="center"/><w:rPr><w:rFonts w:ascii="Cambria" w:hAnsi="Cambria"/><w:sz w:val="44"/><w:szCs w:val="44"/></w:rPr></w:pPr>';
+        const bStart = (match.match(/<w:bookmarkStart[^>]*\/>/g) || []).join('');
+        const bEnd = (match.match(/<w:bookmarkEnd[^>]*\/>/g) || []).join('');
+        const newRun = `<w:r w:rsidRPr="00A64AB2"><w:rPr><w:rFonts w:ascii="Cambria" w:hAnsi="Cambria"/><w:b/><w:bCs/><w:color w:val="FF0000"/><w:sz w:val="44"/><w:szCs w:val="44"/></w:rPr><w:lastRenderedPageBreak/><w:t>${newTitle}</w:t></w:r>`;
+        return `<w:p>${pPr}${bStart}${newRun}${bEnd}</w:p>`;
+      });
+    } else {
+      // Fallback for Heading1 if present in other templates
+      const heading1Regex = /(<w:p[^>]*><w:pPr><w:pStyle w:val="Heading1"[\s\S]*?<\/w:pPr>)([\s\S]*?)(<\/w:p>)/;
+      xml = xml.replace(heading1Regex, (match, pPr, body, close) => {
+        const bStart = (body.match(/<w:bookmarkStart[^>]*\/>/g) || []).join('');
+        const bEnd = (body.match(/<w:bookmarkEnd[^>]*\/>/g) || []).join('');
+        const newRun = `<w:r w:rsidRPr="001A3FD1"><w:rPr><w:rFonts w:ascii="Cambria" w:hAnsi="Cambria"/><w:b/><w:bCs/><w:color w:val="FF0000"/><w:sz w:val="44"/><w:szCs w:val="44"/></w:rPr><w:lastRenderedPageBreak/><w:t>${newTitle}</w:t></w:r>`;
+        return pPr + bStart + newRun + bEnd + close;
+      });
+    }
   }
 
   // 3. Re-index paragraphs to find question boundaries accurately
