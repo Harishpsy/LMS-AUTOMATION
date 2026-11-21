@@ -77,10 +77,13 @@ function extractGroundTruth(filePath) {
       if (/^1\s*[\)\]]/.test(kClean)) {
         firstOptIdx = k;
       }
-      const qm = kClean.match(/^(\d{1,3})\.\s*(.+)/);
-      if (qm && parseInt(qm[1], 10) === currentQNum) {
-        qStartIdx = k;
-        break;
+      const qm = kClean.match(/^(\d{1,4})\.\s*(.+)/);
+      if (qm) {
+        // Match if continuous numbering matches currentQNum OR if we reached before firstOptIdx (topic reset)
+        if (parseInt(qm[1], 10) === currentQNum || (firstOptIdx !== -1 && k < firstOptIdx)) {
+          qStartIdx = k;
+          break;
+        }
       }
     }
 
@@ -120,20 +123,17 @@ function extractGroundTruth(filePath) {
       if (isSectionHeader(kClean)) break;
       if (/^(Aspirant|Affairscloud:|GA Questions|Most Trusted)/i.test(kClean)) break;
 
-      // Stop if genuine next question reached
-      const nextQm = kClean.match(/^(\d{1,3})\.\s*([A-Za-z\u0900-\u097F\d_]|[\u201C\u201D"'])/);
+      // Stop if genuine next question reached (has question number AND option 1 ahead before next answer)
+      const nextQm = kClean.match(/^(\d{1,4})\.\s*([A-Za-z\u0900-\u097F\d_]|[\u201C\u201D"'])/);
       if (nextQm && k > ansIdx + 1) {
-        const nextNum = parseInt(nextQm[1], 10);
-        if (nextNum === expectedNextQNum) {
-          let hasOptAhead = false;
-          for (let look = k + 1; look < Math.min(k + 15, nextBoundary); look++) {
-            if (/^1\s*[\)\]]/.test(lines[look].replace(/\*\*/g, '').trim())) {
-              hasOptAhead = true;
-              break;
-            }
+        let hasOptAhead = false;
+        for (let look = k + 1; look < Math.min(k + 15, nextBoundary); look++) {
+          if (/^1\s*[\)\]]/.test(lines[look].replace(/\*\*/g, '').trim())) {
+            hasOptAhead = true;
+            break;
           }
-          if (hasOptAhead) break;
         }
+        if (hasOptAhead) break;
       }
 
       if (lines[k].startsWith('__TABLE_PLACEHOLDER_')) {
