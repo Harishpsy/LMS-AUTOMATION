@@ -430,18 +430,6 @@ function renderPdfSources() {
     optDailyAll.textContent = `📁 Consolidate all files in Daily Uploads (${dailyCount} files)`;
     monthlySelect.appendChild(optDailyAll);
 
-    if (monthlyCount > 0) {
-      const optGroupMonthlyFiles = document.createElement('optgroup');
-      optGroupMonthlyFiles.label = '📄 Individual Monthly Files';
-      (pdfGenState.monthlySources || []).forEach(f => {
-        const opt = document.createElement('option');
-        opt.value = f.path;
-        opt.textContent = `${f.folder || 'Monthly'} / ${f.name}`;
-        optGroupMonthlyFiles.appendChild(opt);
-      });
-      monthlySelect.appendChild(optGroupMonthlyFiles);
-    }
-
     if (prevVal && Array.from(monthlySelect.options).some(o => o.value === prevVal)) {
       monthlySelect.value = prevVal;
     } else if (pdfGenState.monthlyGroups && pdfGenState.monthlyGroups.length > 0) {

@@ -11,7 +11,7 @@ import { initFileManager, loadFiles } from './modules/fileManager.js?v=11';
 import { initUploader } from './modules/uploader.js?v=11';
 import { initGallery } from './modules/gallery.js?v=11';
 import { appendLog } from './modules/logger.js?v=11';
-import { initPdfGenerator } from './modules/pdfGenUI.js?v=11';
+import { initPdfGenerator } from './modules/pdfGenUI.js?v=12';
 
 // Application State
 let currentParsedData = null;
