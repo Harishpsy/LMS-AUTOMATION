@@ -21,6 +21,10 @@ const ROOT_DIR = path.join(__dirname, '..');
 const STORAGE_PATH = path.join(ROOT_DIR, 'storageState.json');
 
 // ─── MIDDLEWARE ──────────────────────────────────────────────────────────────
+app.use((req, res, next) => {
+  res.setHeader('ngrok-skip-browser-warning', 'true');
+  next();
+});
 app.use(express.json({ limit: '50mb' }));
 app.use(express.static(path.join(ROOT_DIR, 'public')));
 
@@ -201,8 +205,12 @@ app.get('/api/assets', (req, res) => {
         }
       }
 
+      // Skip template promo ads, YouTube banners, hiring flyers & QR codes
+      const promoImageRegex = /^(image[1-8]\.(png|jpe?g)|image370\.png)$/i;
       if (fs.existsSync(imagesDir)) {
-        const imgFiles = fs.readdirSync(imagesDir).filter(f => /\.(png|jpg|jpeg|gif|webp)$/i.test(f)).sort();
+        const imgFiles = fs.readdirSync(imagesDir)
+          .filter(f => /\.(png|jpg|jpeg|gif|webp)$/i.test(f) && !promoImageRegex.test(f))
+          .sort();
         for (const f of imgFiles) {
           const filePath = path.join(imagesDir, f);
           const b64 = fs.readFileSync(filePath).toString('base64');

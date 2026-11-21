@@ -22,19 +22,94 @@ function cleanText(str) {
 }
 
 /**
- * Extract embedded images from .docx media folder
+ * Detect promotional ads, template headers, footers, QR codes, and social media banners
+ * embedded in the .docx template so they are never treated as question content
+ * @param {AdmZip} zip
+ * @returns {Set<string>}
+ */
+function getPromoImages(zip) {
+  const promoImages = new Set();
+
+  try {
+    // 1. All images referenced in header or footer relationships
+    zip.getEntries().forEach(entry => {
+      if (entry.entryName.startsWith('word/_rels/header') || entry.entryName.startsWith('word/_rels/footer')) {
+        const xml = zip.readAsText(entry.entryName);
+        const matches = xml.matchAll(/Target="media\/([^"]+)"/g);
+        for (const m of matches) promoImages.add(m[1]);
+      }
+    });
+
+    // 2. Images linked to external marketing / ad URLs in document.xml.rels
+    const docRelsEntry = zip.getEntry('word/_rels/document.xml.rels');
+    if (docRelsEntry) {
+      const relsXml = zip.readAsText(docRelsEntry);
+      const adRelIds = new Set();
+      const hlMatches = relsXml.matchAll(/<Relationship[^>]+Id="([^"]+)"[^>]+Target="([^"]+)"/g);
+      for (const m of hlMatches) {
+        const id = m[1];
+        const target = m[2].toLowerCase();
+        if (target.includes('youtube') || target.includes('bit.ly') || target.includes('t.me') ||
+            target.includes('forms.gle') || target.includes('affairscloud.com') || target.includes('hiring')) {
+          adRelIds.add(id);
+        }
+      }
+
+      const docXmlEntry = zip.getEntry('word/document.xml');
+      if (docXmlEntry) {
+        const docXml = zip.readAsText(docXmlEntry);
+        for (const adId of adRelIds) {
+          const hlRegex = new RegExp('<w:hyperlink[^>]+r:id="' + adId + '"[\\s\\S]*?<\\/w:hyperlink>', 'g');
+          const hlBlocks = docXml.match(hlRegex) || [];
+          for (const block of hlBlocks) {
+            const blipMatches = block.matchAll(/r:embed="([^"]+)"/g);
+            for (const bm of blipMatches) {
+              const relMatch = relsXml.match(new RegExp('<Relationship[^>]+Id="' + bm[1] + '"[^>]+Target="media\\/([^"]+)"'));
+              if (relMatch) promoImages.add(relMatch[1]);
+            }
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[Promo Detection Warning]:', err.message);
+  }
+
+  // 3. Known template promo filenames standard across all CareersCloud / AffairsCloud docs
+  const knownTemplateNames = [
+    'image1.jpeg', 'image1.jpg',
+    'image2.jpg', 'image2.jpeg',
+    'image3.jpeg', 'image3.jpg',
+    'image4.png',
+    'image5.jpeg', 'image5.jpg',
+    'image6.png', 'image6.jpeg',
+    'image7.png', 'image7.jpeg',
+    'image8.png', 'image8.jpeg',
+    'image370.png'
+  ];
+  knownTemplateNames.forEach(n => promoImages.add(n));
+
+  return promoImages;
+}
+
+/**
+ * Extract embedded images from .docx media folder (excluding template ads, hiring flyers & banners)
  */
 function extractDocxImages(docxPath, outputDir) {
   if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true });
   }
   const zip = new AdmZip(docxPath);
+  const promoSet = getPromoImages(zip);
   const zipEntries = zip.getEntries();
   const imageFiles = [];
 
   for (const entry of zipEntries) {
     if (entry.entryName.startsWith('word/media/')) {
       const fileName = path.basename(entry.entryName);
+      // Skip template branding, promotional ads, YouTube banners, hiring flyers, QR codes
+      if (promoSet.has(fileName)) continue;
+
       const targetPath = path.join(outputDir, fileName);
       fs.writeFileSync(targetPath, entry.getData());
       imageFiles.push({
