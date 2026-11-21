@@ -306,7 +306,18 @@ async function loginWithCredentials({
     await page.goto('https://lms.careerscloud.in/', { waitUntil: 'networkidle', timeout: 35000 });
 
     const emailInput = page.locator('#admin-email');
-    await emailInput.waitFor({ state: 'visible', timeout: 15000 });
+    try {
+      await emailInput.waitFor({ state: 'visible', timeout: 15000 });
+    } catch (waitErr) {
+      const pageTitle = await page.title().catch(() => 'unknown');
+      const currentUrl = page.url();
+      const bodySnippet = await page.evaluate(() => document.body ? document.body.innerText.slice(0, 300) : '').catch(() => '');
+      
+      if (bodySnippet.includes('Verify you are human') || bodySnippet.includes('Cloudflare') || pageTitle.includes('Just a moment') || pageTitle.includes('Attention Required')) {
+        throw new Error(`Cloudflare Bot Protection / Turnstile triggered ("${pageTitle}"). Your team needs to whitelist Render's Outbound IP in Cloudflare WAF.`);
+      }
+      throw new Error(`Could not find login form on ${currentUrl} (Page Title: "${pageTitle}"). Error: ${waitErr.message}`);
+    }
 
     await page.fill('#admin-email', email);
     await page.fill('#admin-password', password);
