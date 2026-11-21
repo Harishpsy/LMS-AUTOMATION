@@ -242,7 +242,10 @@ function buildQuestionsFragmentXml(questions, isTopicWise = true, isHindi = fals
     const qs = sections[sectionTitle];
     if (!qs || qs.length === 0) continue;
 
-    xml += buildSectionHeaderXml(sectionTitle);
+    const cleanTitle = sectionTitle.replace(/\s*\(\d+\s*(?:Questions|Q|प्रश्न)\)/gi, '').trim();
+    const countLabel = isHindi ? `(${qs.length} प्रश्न)` : `(${qs.length} Questions)`;
+    const sectionHeading = `${cleanTitle} ${countLabel}`;
+    xml += buildSectionHeaderXml(sectionHeading);
 
     qs.forEach((q, qIndex) => {
       // Clean single blank line separator between consecutive questions within a section
@@ -354,12 +357,61 @@ function injectQuestionsIntoTemplate({
       '<w:instrText xml:space="preserve"> TOC \\t "Heading 2,1" \\h \\z \\u </w:instrText>'
     );
 
-    // B. Set TOC Heading label (Index / Table of Contents)
-    const tocHeadingText = isHindi ? 'विषय-सूची (INDEX)' : 'INDEX (Table of Contents)';
+    // B. Set TOC Heading label (Index / Table of Contents) with total question count
+    const totalCount = questions.length;
+    const tocHeadingText = isHindi
+      ? `विषय-सूची (INDEX) – कुल प्रश्न: ${totalCount}`
+      : `INDEX (Table of Contents) – Total: ${totalCount} Questions`;
     xml = xml.replace(
       /(<w:pStyle w:val="TOCHeading"[\s\S]*?<w:t>)[^<]*(<\/w:t>)/,
       `$1${tocHeadingText}$2`
     );
+
+    // Rebuild static TOC entries for each section present in questions
+    const tocSections = {};
+    questions.forEach(q => {
+      const s = (q.section || 'NATIONAL AFFAIRS').toUpperCase();
+      if (!tocSections[s]) tocSections[s] = [];
+      tocSections[s].push(q);
+    });
+    const sortedTocSectionTitles = Object.keys(tocSections).sort((a, b) => {
+      return getSectionOrderIndex(a) - getSectionOrderIndex(b);
+    });
+
+    let newTocEntriesXml = '';
+    sortedTocSectionTitles.forEach((st, idx) => {
+      const qs = tocSections[st];
+      if (!qs || qs.length === 0) return;
+      const cleanTitle = st.replace(/\s*\(\d+\s*(?:Questions|Q|प्रश्न)\)/gi, '').trim();
+      const countLabel = isHindi ? `(${qs.length} प्रश्न)` : `(${qs.length} Questions)`;
+      const titleText = `${cleanTitle} ${countLabel}`;
+      const isFirst = idx === 0;
+      const isLast = idx === sortedTocSectionTitles.length - 1;
+
+      const beginField = isFirst ? '<w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText xml:space="preserve"> TOC \\t "Heading 2,1" \\h \\z \\u </w:instrText></w:r><w:r><w:fldChar w:fldCharType="separate"/></w:r>' : '';
+      const endField = isLast ? '<w:r><w:fldChar w:fldCharType="end"/></w:r>' : '';
+
+      newTocEntriesXml += `<w:p><w:pPr><w:pStyle w:val="TOC1"/><w:rPr><w:rFonts w:ascii="Cambria" w:hAnsi="Cambria"/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr></w:pPr>${beginField}<w:hyperlink w:history="1"><w:r><w:rPr><w:rStyle w:val="Hyperlink"/><w:rFonts w:ascii="Cambria" w:hAnsi="Cambria"/><w:b/></w:rPr><w:t>${escapeXml(titleText)}</w:t></w:r><w:r><w:tab/></w:r><w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText xml:space="preserve"> PAGEREF _Toc${idx + 1} \\h </w:instrText></w:r><w:r><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:t></w:t></w:r><w:r><w:fldChar w:fldCharType="end"/></w:r></w:hyperlink>${endField}</w:p>`;
+    });
+
+    const tocHeadingMatch = xml.match(/<w:p[ >][\s\S]*?<w:pStyle w:val="TOCHeading"[\s\S]*?<\/w:p>/);
+    if (tocHeadingMatch) {
+      const afterHeadingIdx = tocHeadingMatch.index + tocHeadingMatch[0].length;
+      let lastTocEnd = afterHeadingIdx;
+      const pReg = /<w:p[ >][\s\S]*?<\/w:p>/g;
+      pReg.lastIndex = afterHeadingIdx;
+      let pm;
+      while ((pm = pReg.exec(xml)) !== null) {
+        if (pm[0].includes('w:val="TOC1"')) {
+          lastTocEnd = pm.index + pm[0].length;
+        } else {
+          break;
+        }
+      }
+      if (lastTocEnd > afterHeadingIdx && newTocEntriesXml) {
+        xml = xml.slice(0, afterHeadingIdx) + newTocEntriesXml + xml.slice(lastTocEnd);
+      }
+    }
 
     // C. Replace the Main Heading 1 Title Banner (pStyle="Heading1")
     const heading1Regex = /(<w:p[^>]*><w:pPr><w:pStyle w:val="Heading1"[\s\S]*?<\/w:pPr>)([\s\S]*?)(<\/w:p>)/;

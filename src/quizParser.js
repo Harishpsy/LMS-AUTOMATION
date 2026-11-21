@@ -925,7 +925,8 @@ async function buildDocxFile({ title, subtitle, questions, isTopicWise = false, 
   }
 
   if (isTopicWise) {
-    bodyChildren.push(makeHeading('Table of Contents', 2));
+    const totalCount = questions.length;
+    bodyChildren.push(makeHeading(`Table of Contents (Total: ${totalCount} Questions)`, 2));
     for (const [topic, qs] of Object.entries(topicMap)) {
       bodyChildren.push(new Paragraph({
         children: [

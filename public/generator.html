@@ -736,7 +736,7 @@
 
   <script type="module">
     import { initTheme } from './modules/theme.js';
-    import { initPdfGenerator } from './modules/pdfGenUI.js?v=10';
+    import { initPdfGenerator } from './modules/pdfGenUI.js?v=15';
     import { appendLog, clearLog } from './modules/logger.js';
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -940,7 +940,7 @@
               text: 'All 4 agents finished! Formatted Word (.docx) & native PDF are ready for download.',
               metric: '100% Completed'
             });
-            import('./modules/pdfGenUI.js').then(m => {
+            import('./modules/pdfGenUI.js?v=15').then(m => {
               if (m.setCurrentGenerated && data.files) {
                 m.setCurrentGenerated(data.files);
               }

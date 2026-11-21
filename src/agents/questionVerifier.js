@@ -218,6 +218,7 @@ function verifyQuizIntegrity(sourceFilePath, parsedQuestions, onLog) {
     const pQ = parsedQuestions[i];
     const gQ = groundTruth.questions[i];
     const qNum = i + 1;
+    const initialAnomaliesCount = anomalies.length;
 
     // A. Question Text Content Match
     const promptSim = textSimilarity(pQ.questionText, gQ.qPrompt);
@@ -311,6 +312,17 @@ function verifyQuizIntegrity(sourceFilePath, parsedQuestions, onLog) {
           type: 'ANSWER_KEY_MISMATCH',
           qNum,
           message: `Question ${qNum} answer key mismatch: parsed "${pQ.answer}", but source document has "${gQ.answerLine}".`
+        });
+      }
+    }
+
+    // Live real-time question verification log
+    const hasIssue = anomalies.length > initialAnomaliesCount;
+    if (!hasIssue) {
+      if (checkCount <= 100 || qNum % 5 === 0 || qNum === checkCount) {
+        log({
+          type: 'info',
+          message: `  ✓ [Q#${qNum}/${checkCount}] Verified with doc: Prompt, 5 Options, Answer [${pQ.answer || 'Key'}], Explanation intact`
         });
       }
     }

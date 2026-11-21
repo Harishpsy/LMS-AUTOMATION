@@ -14,7 +14,7 @@ const { ensureAuthenticatedSession, ensureValidSession, getSessionInfo, loginWit
 const { generateDailyQuiz, generateFromParsedQuiz } = require('./dailyPdfGenerator');
 const { generateMonthlyQuiz } = require('./monthlyPdfGenerator');
 const { generateModernDailyPdf } = require('./modernPdfGenerator');
-const { listSourceFiles, listGeneratedFiles, OUTPUT_DIR } = require('./quizParser');
+const { listSourceFiles, listGeneratedFiles, OUTPUT_DIR, getMonthFolder } = require('./quizParser');
 const { convertDocxToPdf } = require('./docxToPdf');
 const { testPdfLayout } = require('./automatedLayoutTester');
 
@@ -718,7 +718,8 @@ app.get('/api/pdf-gen/files', (req, res) => {
               folder: ent.name,
               label: monthLabelFromFolder(ent.name),
               path: subDir,
-              count: subFiles.length
+              count: subFiles.length,
+              totalQuestions: subFiles.length * 30
             });
             uploadedMonthlySubFiles.push(...subFiles);
           }
@@ -747,10 +748,15 @@ app.get('/api/pdf-gen/files', (req, res) => {
     const generated = listGeneratedFiles();
     const currentGenerated = getCurrentGeneratedFiles();
 
+    const monthlyTotalQuestions = monthlySources.length * 30;
+    const dailyTotalQuestions = dailySources.length * 30;
+
     res.json({
       dailySources,
       monthlySources,
       monthlyGroups,
+      monthlyTotalQuestions,
+      dailyTotalQuestions,
       quizDocSources,
       currentGenerated,
       mode: latestGeneratedRun.mode || null,

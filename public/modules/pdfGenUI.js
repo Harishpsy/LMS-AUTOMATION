@@ -415,14 +415,16 @@ function renderPdfSources() {
       pdfGenState.monthlyGroups.forEach(g => {
         const optG = document.createElement('option');
         optG.value = g.path;
-        optG.textContent = `📁 Consolidate ${g.label} (${g.count} files in Monthly/${g.folder})`;
+        const qCount = g.totalQuestions || (g.count * 30);
+        optG.textContent = `📁 Consolidate ${g.label} (${g.count} files – ${qCount} Questions in Monthly/${g.folder})`;
         monthlySelect.appendChild(optG);
       });
     }
 
     const optMonthlyAll = document.createElement('option');
     optMonthlyAll.value = 'monthly-all';
-    optMonthlyAll.textContent = `📁 Consolidate all files in Uploaded Documents/Monthly (${monthlyCount} files)`;
+    const monthlyQCount = pdfGenState.monthlyTotalQuestions || (monthlyCount * 30);
+    optMonthlyAll.textContent = `📁 Consolidate all files in Uploaded Documents/Monthly (${monthlyCount} files – ${monthlyQCount} Total Questions)`;
     monthlySelect.appendChild(optMonthlyAll);
 
     const optDailyAll = document.createElement('option');
@@ -683,9 +685,9 @@ async function onGenerateMonthly(customTarget = null, customLabel = null) {
 
   let reqBody = { monthLabel };
   if (targetVal === 'monthly-all') {
-    reqBody.folderPath = 'Monthly PDF';
+    reqBody.folderPath = 'monthly-all';
   } else if (targetVal === 'daily-all') {
-    reqBody.folderPath = 'Daily PDF';
+    reqBody.folderPath = 'daily-all';
   } else {
     // Individual file or specific folder
     reqBody.filePath = targetVal;
