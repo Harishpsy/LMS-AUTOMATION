@@ -23,34 +23,51 @@ const {
 const { verifyQuizIntegrity } = require('./agents/questionVerifier');
 
 function selectDailySideBanners(questionsCount, textResult) {
-  let expectedQ = 1;
-  const candidates = [];
+  // Flatten lines across all pages with page and line tracking
+  const allLines = [];
   for (let p = 2; p < textResult.pages.length; p++) {
     const pageText = textResult.pages[p].text;
     if (pageText.includes('Aspirant Queries')) break;
     const lines = pageText.split('\n').map(l => l.trim()).filter(Boolean);
     lines.forEach((l, lIdx) => {
-      const m = l.match(/^(\d{1,2})\.\s*/);
-      if (m) {
-        const qNum = parseInt(m[1], 10);
-        if (qNum === expectedQ) {
-          const lookahead = lines.slice(lIdx + 1, lIdx + 20).join('\n');
-          const isRealQ = /1\)/.test(lookahead) || /(?:Answer|उत्तर|आंसर|Ans)/i.test(lookahead);
-          if (isRealQ) {
-            const posRatio = (lIdx + 1) / lines.length;
-            const remainingLines = lines.length - (lIdx + 1);
-            if (qNum > 1 && qNum < questionsCount) {
-              if (posRatio <= 0.18 && remainingLines >= 34) {
-                candidates.push({ qNum, page: p + 1, posRatio, remainingLines, tier: 1 });
-              } else if (posRatio <= 0.30 && remainingLines >= 30) {
-                candidates.push({ qNum, page: p + 1, posRatio, remainingLines, tier: 2 });
-              }
+      allLines.push({
+        page: p + 1,
+        lineIdx: lIdx,
+        totalPageLines: lines.length,
+        text: l
+      });
+    });
+  }
+
+  let expectedQ = 1;
+  const candidates = [];
+  for (let i = 0; i < allLines.length; i++) {
+    const item = allLines[i];
+    const m = item.text.match(/^(\d{1,2})\.\s*/);
+    if (m) {
+      const qNum = parseInt(m[1], 10);
+      if (qNum === expectedQ) {
+        // Cross-page lookahead (up to 30 lines ahead across page boundaries)
+        const lookahead = allLines.slice(i + 1, i + 30).map(x => x.text).join('\n');
+        const isRealQ = /1\)/.test(lookahead) || /(?:Answer|उत्तर|आंसर|Ans)/i.test(lookahead);
+        if (isRealQ) {
+          const posRatio = (item.lineIdx + 1) / item.totalPageLines;
+          const remainingLines = item.totalPageLines - (item.lineIdx + 1);
+          if (qNum > 1 && qNum < questionsCount) {
+            if (posRatio <= 0.18 && remainingLines >= 32) {
+              candidates.push({ qNum, page: item.page, posRatio, remainingLines, tier: 1 });
+            } else if (posRatio <= 0.30 && remainingLines >= 26) {
+              candidates.push({ qNum, page: item.page, posRatio, remainingLines, tier: 2 });
+            } else if (posRatio <= 0.45 && remainingLines >= 18) {
+              candidates.push({ qNum, page: item.page, posRatio, remainingLines, tier: 3 });
+            } else {
+              candidates.push({ qNum, page: item.page, posRatio, remainingLines, tier: 4 });
             }
-            expectedQ++;
           }
+          expectedQ++;
         }
       }
-    });
+    }
   }
 
   const midBoundary = Math.floor(questionsCount * 0.55);
@@ -58,14 +75,22 @@ function selectDailySideBanners(questionsCount, textResult) {
   const lateTier1 = candidates.filter(c => c.qNum > midBoundary && c.qNum < questionsCount && c.tier === 1);
   const midTier2 = candidates.filter(c => c.qNum >= 3 && c.qNum <= midBoundary && c.tier === 2);
   const lateTier2 = candidates.filter(c => c.qNum > midBoundary && c.qNum < questionsCount && c.tier === 2);
+  const midTier3 = candidates.filter(c => c.qNum >= 3 && c.qNum <= midBoundary && c.tier === 3);
+  const lateTier3 = candidates.filter(c => c.qNum > midBoundary && c.qNum < questionsCount && c.tier === 3);
+  const midTier4 = candidates.filter(c => c.qNum >= 3 && c.qNum <= midBoundary);
+  const lateTier4 = candidates.filter(c => c.qNum > midBoundary && c.qNum < questionsCount);
 
   let midPick = midTier1.length > 0
     ? midTier1[Math.floor(Math.random() * midTier1.length)].qNum
-    : (midTier2.length > 0 ? midTier2[Math.floor(Math.random() * midTier2.length)].qNum : null);
+    : (midTier2.length > 0 ? midTier2[Math.floor(Math.random() * midTier2.length)].qNum
+    : (midTier3.length > 0 ? midTier3[Math.floor(Math.random() * midTier3.length)].qNum
+    : (midTier4.length > 0 ? midTier4[0].qNum : null)));
 
   let latePick = lateTier1.length > 0
     ? lateTier1[Math.floor(Math.random() * lateTier1.length)].qNum
-    : (lateTier2.length > 0 ? lateTier2[Math.floor(Math.random() * lateTier2.length)].qNum : null);
+    : (lateTier2.length > 0 ? lateTier2[Math.floor(Math.random() * lateTier2.length)].qNum
+    : (lateTier3.length > 0 ? lateTier3[Math.floor(Math.random() * lateTier3.length)].qNum
+    : (lateTier4.length > 0 ? lateTier4[0].qNum : null)));
 
   if (!latePick && midPick) {
     const midPage = candidates.find(c => c.qNum === midPick)?.page || 0;
@@ -77,6 +102,14 @@ function selectDailySideBanners(questionsCount, textResult) {
     const alt = candidates.find(c => c.qNum !== latePick && Math.abs(c.page - latePage) >= 2);
     if (alt) midPick = alt.qNum;
   }
+
+  // Guaranteed fallback: never let midPick or latePick be empty
+  if (!midPick) {
+    midPick = Math.max(3, Math.round(questionsCount * 0.38));
+  }
+  if (!latePick || latePick === midPick) {
+    latePick = Math.min(questionsCount - 1, Math.round(questionsCount * 0.72));
+  }
   if (midPick && latePick && midPick > latePick) {
     const temp = midPick;
     midPick = latePick;
@@ -84,8 +117,8 @@ function selectDailySideBanners(questionsCount, textResult) {
   }
 
   const bannerAssignments = { 1: 0 };
-  if (midPick) bannerAssignments[midPick] = 1;
-  if (latePick) bannerAssignments[latePick] = 2;
+  bannerAssignments[midPick] = 1;
+  bannerAssignments[latePick] = 2;
 
   return { midPick, latePick, bannerAssignments };
 }
@@ -199,6 +232,25 @@ async function generateDailyQuiz(sourceFilePath, onLog) {
     }
   } catch (pdfErr) {
     log({ type: 'warn', message: `⚠️ Note: PDF will be generated on download (${pdfErr.message})` });
+    // Guarantee that DOCX has all promotional banners even if PDF engine was skipped
+    try {
+      const defaultBanners = {
+        1: 0,
+        [Math.max(3, Math.round(questions.length * 0.38))]: 1,
+        [Math.min(questions.length - 1, Math.round(questions.length * 0.72))]: 2
+      };
+      injectQuestionsIntoTemplate({
+        templatePath: DEFAULT_DAILY_TEMPLATE_PATH,
+        questions,
+        dateString: rawParsed.dateString,
+        outputPath: docxPath,
+        isTopicWise: false,
+        isHindi,
+        tableMap: rawParsed.tableMap || {},
+        includeBottomBanner: true,
+        bannerAssignments: defaultBanners
+      });
+    } catch (_) {}
   }
 
   return [docxPath];
@@ -288,6 +340,25 @@ async function generateFromParsedQuiz(quizData, onLog) {
     }
   } catch (pdfErr) {
     log({ type: 'warn', message: `⚠️ Note: PDF will be generated on download (${pdfErr.message})` });
+    // Guarantee that DOCX has all promotional banners even if PDF engine was skipped
+    try {
+      const defaultBanners = {
+        1: 0,
+        [Math.max(3, Math.round(questions.length * 0.38))]: 1,
+        [Math.min(questions.length - 1, Math.round(questions.length * 0.72))]: 2
+      };
+      injectQuestionsIntoTemplate({
+        templatePath: DEFAULT_DAILY_TEMPLATE_PATH,
+        questions,
+        dateString: title,
+        outputPath: docxPath,
+        isTopicWise: false,
+        isHindi,
+        tableMap: quizData.tableMap || {},
+        includeBottomBanner: true,
+        bannerAssignments: defaultBanners
+      });
+    } catch (_) {}
   }
 
   return [docxPath];

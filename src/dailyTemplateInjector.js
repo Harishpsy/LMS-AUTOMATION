@@ -68,9 +68,16 @@ function selectBannerQuestions(questions, numBanners) {
   if (numBanners >= 1) {
     selectedMap.set(1, 0);
   }
+  // Safe default placements if layout audit is bypassed or offline
+  if (numBanners >= 2) {
+    const midQ = Math.max(3, Math.round(questions.length * 0.38));
+    selectedMap.set(midQ, 1);
+  }
+  if (numBanners >= 3) {
+    const lateQ = Math.min(questions.length - 1, Math.round(questions.length * 0.72));
+    selectedMap.set(lateQ, 2);
+  }
 
-  // Without a layout audit, do not guess questions for banners 1 & 2 to avoid causing blank gaps.
-  // They are placed dynamically and safely during layout audit in dailyPdfGenerator.
   return selectedMap;
 }
 
