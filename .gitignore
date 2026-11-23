@@ -16,6 +16,9 @@ sample_extracted.html
 Generated PDFs/
 Uploaded Documents/
 
+# Template PDF caches (auto-generated on demand)
+Templates/Daily/master_template_*.pdf
+
 # user documents (keep out of git, but keep the TEMPLATES and app assets)
 Quiz Document/
 Daily PDF/
