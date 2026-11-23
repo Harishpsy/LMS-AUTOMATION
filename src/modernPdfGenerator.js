@@ -32,6 +32,7 @@ const {
   getDateFolder,
   OUTPUT_DIR
 } = require('./quizParser');
+const { verifyQuizIntegrity } = require('./agents/questionVerifier');
 const { convertDocxToPdf } = require('./docxToPdf');
 
 const ROOT_DIR = path.join(__dirname, '..');
@@ -113,9 +114,23 @@ function getQrCodeDataUri() {
   return '';
 }
 
+function getClosingBannerDataUri() {
+  const bannerDir = path.join(ROOT_DIR, 'Templates', 'Daily', 'extracted_assets', 'images');
+  for (const f of ['image8.jpeg', 'image8.jpg', 'image8.png']) {
+    const p = path.join(bannerDir, f);
+    if (fs.existsSync(p)) {
+      const ext = path.extname(f).slice(1).toLowerCase();
+      const mime = ext === 'png' ? 'image/png' : 'image/jpeg';
+      return `data:${mime};base64,${fs.readFileSync(p).toString('base64')}`;
+    }
+  }
+  return '';
+}
+
 function buildTransparentOverlayHtml({ questions, dateString, isHindi, tableMap }) {
   const banners = getBannerDataUris();
   const qrUri = getQrCodeDataUri();
+  const closingBanner = getClosingBannerDataUri();
   const cleanDate = String(dateString || '').replace(/^DAILY\s+(?:CA\s+)?QUIZ[:\s\-]*/i, '').trim();
   const mainTitleText = isHindi
     ? `Current Affairs Hindi Q&A PDF – ${esc(cleanDate)}`
@@ -222,6 +237,11 @@ function buildTransparentOverlayHtml({ questions, dateString, isHindi, tableMap 
       srcHtml += `</div></div>`;
   });
 
+  // Closing footer promotional banner (image8.jpeg - "post your doubt" / discussion banner)
+  if (closingBanner) {
+    srcHtml += `<div class="closing-banner" style="margin-top: 14px; text-align: center;"><img class="doubt" src="${closingBanner}" style="width: 100%; border-radius: 6px; display: block; box-shadow: 0 2px 6px rgba(0,0,0,0.12);" /></div>`;
+  }
+
   // Load CSS and customize for transparent overlay:
   let css = fs.readFileSync(path.join(ROOT_DIR, 'src', 'modernPdf.css'), 'utf8');
   css = css.replace(/background:\s*#fff\s+url\([^)]+\)[^;]*;/g, 'background: transparent;');
@@ -230,8 +250,8 @@ function buildTransparentOverlayHtml({ questions, dateString, isHindi, tableMap 
   css = css.replace(/\.pin\s*\{[^}]*\}/g, '.pin { height: 100%; background: transparent; display: flex; flex-direction: column; }');
   css = css.replace(/\.hd\s*\{[^}]*\}/g, '.hd { display: none !important; }');
   css = css.replace(/\.ft\s*\{[^}]*\}/g, '.ft { display: none !important; }');
-  // CRITICAL: Padding-top is 114px keeping header space as is; padding-bottom is 30px to fill content for whole page leaving 30px above footer
-  css = css.replace(/\.pb\s*\{[^}]*\}/g, '.pb { flex: 1; min-height: 0; overflow: hidden; padding: 114px 34px 30px 34px; }');
+  // CRITICAL: Padding-top is 114px keeping header space; padding-bottom is 58px so content/banner sits flush above footer dashed line (y=34 pt / 45px) with 13px breathing space
+  css = css.replace(/\.pb\s*\{[^}]*\}/g, '.pb { flex: 1; min-height: 0; overflow: hidden; padding: 114px 34px 58px 34px; }');
 
   return `<!DOCTYPE html>
 <html>
@@ -546,6 +566,24 @@ function buildTransparentOverlayHtml({ questions, dateString, isHindi, tableMap 
 
       window.runPagination = function() {
         paginate();
+
+        // Push closing banner flush to the bottom of the content area if remaining space exists
+        var banner = document.querySelector('#pages .closing-banner');
+        if (banner) {
+          var pb = banner.closest('.pb');
+          if (pb) {
+            var pbRect = pb.getBoundingClientRect();
+            var bannerRect = banner.getBoundingClientRect();
+            var pbPadBottom = parseFloat(window.getComputedStyle(pb).paddingBottom) || 0;
+            var contentBottom = pbRect.bottom - pbPadBottom;
+            var gap = contentBottom - bannerRect.bottom;
+            if (gap > 0) {
+              var curMargin = parseFloat(window.getComputedStyle(banner).marginTop) || 0;
+              banner.style.marginTop = (curMargin + gap) + 'px';
+            }
+          }
+        }
+
         window.__paginated = true;
       };
     })();
@@ -704,6 +742,15 @@ async function generateModernDailyPdf(sourceFilePath, onLog) {
 
   log({ type: 'info', message: `✅ Parsed ${questions.length} questions (${langLabel}) for ${raw.dateString}` });
 
+  // 1-to-1 Ground-Truth Verification against original document (Question Verification Agent)
+  const auditReport = verifyQuizIntegrity(sourceFilePath, questions, log);
+  if (!auditReport.passed) {
+    log({
+      type: 'warn',
+      message: `⚠️ Integrity Alert: ${auditReport.anomalies.length} question anomalies detected against original source document!`
+    });
+  }
+
   // 1. Build Runner HTML for transparent cards
   const runnerHtml = buildTransparentOverlayHtml({
     questions,
@@ -834,6 +881,15 @@ async function generateModernDailyPdf(sourceFilePath, onLog) {
     color: rgb(1, 1, 1),
   });
 
+  // Authentic footer dashed line above copyright footer
+  tocBasePage.drawLine({
+    start: { x: 34, y: 34 },
+    end: { x: 561, y: 34 },
+    thickness: 0.75,
+    color: rgb(127 / 255, 127 / 255, 127 / 255),
+    dashArray: [3, 3]
+  });
+
   // Draw TOC overlay
   tocBasePage.drawPage(embeddedToc, {
     x: 0,
@@ -854,6 +910,15 @@ async function generateModernDailyPdf(sourceFilePath, onLog) {
       width: 543,
       height: 736,
       color: rgb(1, 1, 1),
+    });
+
+    // Authentic footer dashed line above copyright footer
+    bgPage.drawLine({
+      start: { x: 34, y: 34 },
+      end: { x: 561, y: 34 },
+      thickness: 0.75,
+      color: rgb(127 / 255, 127 / 255, 127 / 255),
+      dashArray: [3, 3]
     });
     
     // Draw transparent cards onto authentic background page
