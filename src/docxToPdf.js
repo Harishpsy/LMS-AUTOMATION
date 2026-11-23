@@ -8,9 +8,10 @@ const { execFile } = require('child_process');
  * 
  * @param {string} docxPath - Absolute or relative path to the .docx file
  * @param {string} [customPdfPath] - Optional custom destination path for the .pdf
+ * @param {number} [optimizeFor=0] - 0 = wdExportOptimizeForPrint (full original crystal-clear image & logo resolution), 1 = wdExportOptimizeForOnScreen
  * @returns {Promise<string>} - Resolves with the absolute path of the converted .pdf
  */
-async function convertDocxToPdf(docxPath, customPdfPath = null) {
+async function convertDocxToPdf(docxPath, customPdfPath = null, optimizeFor = 0) {
   const resolvedDocx = path.resolve(docxPath);
   if (!fs.existsSync(resolvedDocx)) {
     throw new Error(`Source DOCX not found: ${resolvedDocx}`);
@@ -35,7 +36,8 @@ async function convertDocxToPdf(docxPath, customPdfPath = null) {
     '-ExecutionPolicy', 'Bypass',
     '-File', scriptPath,
     '-DocxPath', resolvedDocx,
-    '-PdfPath', resolvedPdf
+    '-PdfPath', resolvedPdf,
+    '-OptimizeFor', String(optimizeFor)
   ];
 
   return new Promise((resolve, reject) => {

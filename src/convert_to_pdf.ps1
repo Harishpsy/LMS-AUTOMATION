@@ -1,6 +1,7 @@
 param(
     [Parameter(Mandatory=$true)][string]$DocxPath,
-    [Parameter(Mandatory=$true)][string]$PdfPath
+    [Parameter(Mandatory=$true)][string]$PdfPath,
+    [Parameter(Mandatory=$false)][int]$OptimizeFor = 0 # 0 = wdExportOptimizeForPrint (full original crystal-clear image & logo resolution), 1 = wdExportOptimizeForOnScreen
 )
 
 $word = $null
@@ -52,8 +53,9 @@ try {
         # Ignore non-fatal TOC update errors
     }
 
-    # wdExportFormatPDF = 17, wdExportOptimizeForPrint = 0
-    $doc.ExportAsFixedFormat($PdfPath, 17, $false, 0)
+    # wdExportFormatPDF = 17
+    # OptimizeFor: 0 = wdExportOptimizeForPrint (high-res), 1 = wdExportOptimizeForOnScreen (optimized for web/screen, minimal size)
+    $doc.ExportAsFixedFormat($PdfPath, 17, $false, $OptimizeFor)
     Write-Output "PDF_CONVERTED_OK"
 }
 catch {

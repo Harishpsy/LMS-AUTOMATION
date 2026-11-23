@@ -182,6 +182,10 @@ function injectQuestionsIntoTemplate({
   const zip = new AdmZip(templatePath);
   let xml = zip.readAsText('word/document.xml');
 
+  // Strip Segoe UI Emoji font refs and emojis to prevent Word from embedding the 4MB font
+  xml = xml.replace(/"Segoe UI Emoji"/g, '"Cambria"');
+  xml = xml.replace(/[\u{1F300}-\u{1FAFF}]/gu, '');
+
   // 1. Locate all <w:p> blocks in document.xml
   const pRegex = /<w:p(?:\s+[^>]*)?>[\s\S]*?<\/w:p>/g;
   let match;
@@ -263,6 +267,22 @@ function injectQuestionsIntoTemplate({
       middle = middle.replace(/<w:p[ >](?:(?!<w:t|<w:drawing|<w:fldSimple|<w:fldChar).)*?<\/w:p>/g, '');
       xml = sectionBefore + middle + sectionAfter;
     }
+
+    // F. Give comfortable breathing space before "Congratulations on Your Success!"
+    const congrIdxAfter = xml.indexOf('Congratulations on Your Success!');
+    if (congrIdxAfter !== -1) {
+      const pStart = xml.lastIndexOf('<w:p', congrIdxAfter);
+      if (pStart !== -1) {
+        const pPrEnd = xml.indexOf('</w:pPr>', pStart);
+        if (pPrEnd !== -1 && pPrEnd < congrIdxAfter) {
+          const pPr = xml.slice(pStart, pPrEnd);
+          const updatedPPr = /<w:spacing\b/.test(pPr)
+            ? pPr.replace(/<w:spacing\b[^>]*\/>/, '<w:spacing w:before="480" w:after="80" w:line="276" w:lineRule="auto"/>')
+            : pPr.replace('<w:pPr>', '<w:pPr><w:spacing w:before="480" w:after="80" w:line="276" w:lineRule="auto"/>');
+          xml = xml.slice(0, pStart) + updatedPPr + xml.slice(pPrEnd);
+        }
+      }
+    }
   }
 
   // 3. Re-index paragraphs to find question boundaries accurately
@@ -321,7 +341,11 @@ function injectQuestionsIntoTemplate({
   );
 
   // Replace ONLY the questions portion between startOffset and endOffset!
-  const newDocXml = xml.slice(0, startOffset) + newQuestionsXml + aspirantPart;
+  let newDocXml = xml.slice(0, startOffset) + newQuestionsXml + aspirantPart;
+
+  // Sanitize any remaining Segoe UI Emoji or emoji characters in injected content
+  newDocXml = newDocXml.replace(/"Segoe UI Emoji"/g, '"Cambria"');
+  newDocXml = newDocXml.replace(/[\u{1F300}-\u{1FAFF}]/gu, '');
 
   // 7c. Update document.xml inside the zip
   zip.updateFile('word/document.xml', Buffer.from(newDocXml, 'utf-8'));
@@ -352,6 +376,17 @@ function injectQuestionsIntoTemplate({
     }
   } catch (e) {
     console.warn('[templateInjector] Could not patch styles.xml:', e.message);
+  }
+
+  // 9b. Patch fontTable.xml – remove Segoe UI Emoji definition so Word does not embed the 4MB font
+  try {
+    let fontXml = zip.readAsText('word/fontTable.xml');
+    if (fontXml && fontXml.includes('Segoe UI Emoji')) {
+      fontXml = fontXml.replace(/"Segoe UI Emoji"/g, '"Cambria"');
+      zip.updateFile('word/fontTable.xml', Buffer.from(fontXml, 'utf-8'));
+    }
+  } catch (e) {
+    console.warn('[templateInjector] Could not patch fontTable.xml:', e.message);
   }
 
   // 10. Patch document.xml.rels – register newly added hyperlinks as external relationships
