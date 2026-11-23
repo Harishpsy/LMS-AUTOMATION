@@ -217,8 +217,8 @@ function injectQuestionsIntoTemplate({
       '<w:instrText xml:space="preserve"> TOC \\t "Heading 2,1" \\h \\z \\u </w:instrText>'
     );
 
-    // B. Set TOC Heading label (Index / Table of Contents)
-    const tocHeadingText = isHindi ? 'विषय-सूची (INDEX)' : 'INDEX (Table of Contents)';
+    // B. Set TOC Heading label (Index / Table of Contents) - Always English per requirements
+    const tocHeadingText = 'INDEX (Table of Contents)';
     xml = xml.replace(
       /(<w:pStyle w:val="TOCHeading"[\s\S]*?<w:t>)[^<]*(<\/w:t>)/,
       `$1${tocHeadingText}$2`

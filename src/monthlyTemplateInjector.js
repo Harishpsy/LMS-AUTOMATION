@@ -370,11 +370,9 @@ function injectQuestionsIntoTemplate({
       '<w:instrText xml:space="preserve"> TOC \\t "Heading 2,1" \\h \\z \\u </w:instrText>'
     );
 
-    // B. Set TOC Heading label (Index / Table of Contents) with total question count
+    // B. Set TOC Heading label (Index / Table of Contents) with total question count - Always English per requirements
     const totalCount = questions.length;
-    const tocHeadingText = isHindi
-      ? `विषय-सूची (INDEX) – कुल प्रश्न: ${totalCount}`
-      : `INDEX (Table of Contents) – Total: ${totalCount} Questions`;
+    const tocHeadingText = `INDEX (Table of Contents) – Total: ${totalCount} Questions`;
     xml = xml.replace(
       /(<w:pStyle w:val="TOCHeading"[\s\S]*?<w:t>)[^<]*(<\/w:t>)/,
       `$1${tocHeadingText}$2`

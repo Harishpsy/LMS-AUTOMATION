@@ -112,12 +112,14 @@ function buildExplanationXml(explanation, isHindi = false, tableMap = {}, hyperl
       // Native Word bullet paragraph – standard 720/360 indent matching original template
       const pPr = `<w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="2"/></w:numPr><w:spacing w:before="20" w:after="30" w:line="276" w:lineRule="auto"/><w:ind w:left="720" w:hanging="360"/><w:rPr>${getRPrBase(isHindi)}</w:rPr></w:pPr>`;
 
-      // Check if there is a bold heading prefix like "**Heading:**", "**Heading: **", or "Heading:"
-      // We match up to the first colon, including any closing ** (before or after spaces)
-      const prefixMatch = cleanContent.match(/^(\*{0,2}[^:\n]{1,70}:(?:\s*\*{2})?\s*)(.*)$/);
+      // Check if there is a bold heading prefix before a colon (e.g. "Heading: rest")
+      // Crucial: The prefix before the colon MUST NOT contain any asterisks (*).
+      // If the line already has markdown bold formatting (like "**Heading:**" or "**Heading: sub**"),
+      // renderRunsWithBold handles it natively without splitting across asterisk boundaries.
+      const prefixMatch = cleanContent.match(/^([^*:\n]{1,70}:)\s*(.*)$/);
 
       if (prefixMatch) {
-        const prefix = prefixMatch[1].replace(/\*\*/g, '').trim();
+        const prefix = prefixMatch[1].trim();
         const rest = prefixMatch[2].trim();
         const prefixRun = `<w:r><w:rPr>${getRPrBold(isHindi)}</w:rPr><w:t xml:space="preserve">${escapeXml(prefix)} </w:t></w:r>`;
         const restRuns = renderRunsWithBold(rest, false, hyperlinkRegistry, isHindi);
