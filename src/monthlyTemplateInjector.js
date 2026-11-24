@@ -370,8 +370,9 @@ function injectQuestionsIntoTemplate({
       '<w:instrText xml:space="preserve"> TOC \\t "Heading 2,1" \\h \\z \\u </w:instrText>'
     );
 
-    // B. Set TOC Heading label matching original CareersCloud styling ("Table of Contents")
-    const tocHeadingText = 'Table of Contents';
+    // B. Set TOC Heading label with total questions count
+    const totalCountLabel = `${questions.length} ${isHindi ? 'प्रश्न' : 'Questions'}`;
+    const tocHeadingText = `INDEX (Table of Contents) – Total: ${totalCountLabel}`;
     xml = xml.replace(
       /(<w:pStyle w:val="TOCHeading"[\s\S]*?<w:t>)[^<]*(<\/w:t>)/,
       `$1${tocHeadingText}$2`
@@ -394,7 +395,8 @@ function injectQuestionsIntoTemplate({
       const qs = tocSections[st];
       if (!qs || qs.length === 0) return;
       const cleanTitle = st.replace(/\s*\(\d+\s*(?:Questions|Q|प्रश्न)\)/gi, '').trim();
-      const titleText = cleanTitle;
+      const countLabel = `${qs.length} ${isHindi ? 'प्रश्न' : (qs.length === 1 ? 'Question' : 'Questions')}`;
+      const titleText = `${cleanTitle} (${countLabel})`;
       newTocEntriesXml += `<w:p><w:pPr><w:pStyle w:val="TOC1"/><w:rPr><w:rFonts w:ascii="Cambria" w:hAnsi="Cambria"/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr></w:pPr><w:hyperlink w:anchor="_Sec_${idx + 1}" w:history="1"><w:r><w:rPr><w:rFonts w:ascii="Cambria" w:hAnsi="Cambria"/><w:b/><w:color w:val="000000"/><w:u w:val="none"/></w:rPr><w:t>${escapeXml(titleText)}</w:t></w:r><w:r><w:tab/></w:r><w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText xml:space="preserve"> PAGEREF _Sec_${idx + 1} \\h </w:instrText></w:r><w:r><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:t></w:t></w:r><w:r><w:fldChar w:fldCharType="end"/></w:r></w:hyperlink></w:p>`;
     });
 
