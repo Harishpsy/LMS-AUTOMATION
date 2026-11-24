@@ -53,6 +53,128 @@
       padding: 24px;
       box-shadow: var(--shadow-card);
     }
+
+    /* Expandable Tree Dropdown for Monthly Source */
+    .tree-dropdown-wrap {
+      position: relative;
+      width: 100%;
+    }
+    .tree-dropdown-trigger {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      height: 42px;
+      padding: 0 14px;
+      background: var(--bg-card-subtle);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      color: var(--text-main);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      user-select: none;
+      text-align: left;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .tree-dropdown-trigger:hover,
+    .tree-dropdown-trigger:focus {
+      border-color: var(--accent-purple, #8b5cf6);
+      box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.15);
+    }
+    .tree-dropdown-menu {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      min-width: 100%;
+      width: max-content;
+      max-width: min(560px, 95vw);
+      z-index: 10000;
+      background: var(--bg-card, #131b2e);
+      border: 1px solid var(--border-color, #2a3756);
+      border-radius: var(--radius-md, 8px);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+      max-height: 380px;
+      overflow-y: auto;
+      padding: 6px;
+    }
+    .tree-dropdown-menu.hidden {
+      display: none !important;
+    }
+    .tree-month-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.15s;
+      background: rgba(255, 255, 255, 0.02);
+      margin-bottom: 3px;
+    }
+    .tree-month-row:hover {
+      background: rgba(139, 92, 246, 0.15);
+    }
+    .tree-month-row.selected {
+      background: rgba(139, 92, 246, 0.22);
+      border: 1px solid rgba(139, 92, 246, 0.35);
+    }
+    .tree-expand-btn {
+      background: rgba(139, 92, 246, 0.2);
+      border: 1px solid rgba(139, 92, 246, 0.4);
+      color: var(--accent-purple, #a855f7);
+      width: 30px;
+      height: 26px;
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 800;
+      margin-left: 8px;
+      flex-shrink: 0;
+      transition: all 0.15s;
+    }
+    .tree-expand-btn:hover {
+      background: var(--accent-purple, #8b5cf6);
+      color: #ffffff;
+      transform: scale(1.08);
+    }
+    .tree-sub-list {
+      padding-left: 12px;
+      margin-top: 3px;
+      margin-bottom: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      border-left: 2px solid rgba(139, 92, 246, 0.3);
+      margin-left: 12px;
+    }
+    .tree-sub-list.hidden {
+      display: none !important;
+    }
+    .tree-file-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      color: var(--text-muted);
+      transition: all 0.15s;
+    }
+    .tree-file-row:hover {
+      background: rgba(139, 92, 246, 0.18);
+      color: var(--text-main);
+    }
+    .tree-file-row.selected {
+      background: rgba(139, 92, 246, 0.25);
+      color: #ffffff;
+      font-weight: 600;
+    }
     .section-title-wrap {
       display: flex;
       align-items: center;
@@ -245,12 +367,19 @@
               <div id="panelMonthlyFolder" class="tab-panel">
                 <div style="display: flex; flex-direction: column; gap: 12px;">
                   <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;">
-                    <div class="select-group" style="flex: 2; min-width: 260px;">
-                      <label for="monthlySourceSelect">Source / Target:</label>
-                      <select id="monthlySourceSelect" class="styled-select">
-                        <option value="monthly-all">📁 Consolidate all files in Uploaded Documents/Monthly</option>
-                        <option value="daily-all">📁 Consolidate all files in Daily Uploads</option>
-                      </select>
+                    <div class="select-group" style="flex: 2; min-width: 260px; position: relative;">
+                      <label for="monthlyDropdownTrigger">Source / Target:</label>
+                      <!-- Hidden native select keeps 100% backward-compatibility for all existing script logic -->
+                      <select id="monthlySourceSelect" class="styled-select" style="display: none;"></select>
+                      
+                      <!-- Expandable Tree Dropdown (Shows month only; click > expands individual files) -->
+                      <div class="tree-dropdown-wrap">
+                        <button type="button" id="monthlyDropdownTrigger" class="tree-dropdown-trigger" aria-haspopup="listbox" aria-expanded="false">
+                          <span id="monthlySelectedText" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">📁 Select Month / Source...</span>
+                          <span id="monthlyTriggerChevron" style="font-size: 11px; margin-left: 8px; color: var(--text-muted); flex-shrink: 0; transition: transform 0.2s;">▼</span>
+                        </button>
+                        <div id="monthlyDropdownMenu" class="tree-dropdown-menu hidden"></div>
+                      </div>
                     </div>
                     <div class="input-field" style="flex: 1; min-width: 180px;">
                       <label for="monthlyLabelInput">Month &amp; Year Label:</label>

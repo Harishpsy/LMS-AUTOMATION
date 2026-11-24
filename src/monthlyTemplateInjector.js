@@ -361,8 +361,8 @@ function injectQuestionsIntoTemplate({
   if (dateString) {
     const cleanDate = dateString.replace(/^DAILY\s+(?:CA\s+)?QUIZ[:\s\-]*/i, '').trim();
     const newTitle = isHindi
-      ? `Current Affairs Monthly Hindi Q&amp;A PDF – ${escapeXml(cleanDate)}`
-      : `Current Affairs Monthly Q&amp;A PDF – ${escapeXml(cleanDate)}`;
+      ? `Current Affairs Hindi Q&amp;A PDF – ${escapeXml(cleanDate)}`
+      : `Current Affairs Q&amp;A PDF – ${escapeXml(cleanDate)}`;
 
     // A. Configure Table of Contents to dynamically index all Topic sections (Heading 2)
     xml = xml.replace(
@@ -370,9 +370,8 @@ function injectQuestionsIntoTemplate({
       '<w:instrText xml:space="preserve"> TOC \\t "Heading 2,1" \\h \\z \\u </w:instrText>'
     );
 
-    // B. Set TOC Heading label (Index / Table of Contents) with total question count - Always English per requirements
-    const totalCount = questions.length;
-    const tocHeadingText = `INDEX (Table of Contents) – Total: ${totalCount} Questions`;
+    // B. Set TOC Heading label matching original CareersCloud styling ("Table of Contents")
+    const tocHeadingText = 'Table of Contents';
     xml = xml.replace(
       /(<w:pStyle w:val="TOCHeading"[\s\S]*?<w:t>)[^<]*(<\/w:t>)/,
       `$1${tocHeadingText}$2`
@@ -395,8 +394,7 @@ function injectQuestionsIntoTemplate({
       const qs = tocSections[st];
       if (!qs || qs.length === 0) return;
       const cleanTitle = st.replace(/\s*\(\d+\s*(?:Questions|Q|प्रश्न)\)/gi, '').trim();
-      const countLabel = isHindi ? `(${qs.length} प्रश्न)` : `(${qs.length} Questions)`;
-      const titleText = `${cleanTitle} ${countLabel}`;
+      const titleText = cleanTitle;
       newTocEntriesXml += `<w:p><w:pPr><w:pStyle w:val="TOC1"/><w:rPr><w:rFonts w:ascii="Cambria" w:hAnsi="Cambria"/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr></w:pPr><w:hyperlink w:anchor="_Sec_${idx + 1}" w:history="1"><w:r><w:rPr><w:rFonts w:ascii="Cambria" w:hAnsi="Cambria"/><w:b/><w:color w:val="000000"/><w:u w:val="none"/></w:rPr><w:t>${escapeXml(titleText)}</w:t></w:r><w:r><w:tab/></w:r><w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText xml:space="preserve"> PAGEREF _Sec_${idx + 1} \\h </w:instrText></w:r><w:r><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:t></w:t></w:r><w:r><w:fldChar w:fldCharType="end"/></w:r></w:hyperlink></w:p>`;
     });
 

@@ -133,7 +133,9 @@ export function initPdfGenerator(options = {}) {
         btnQuickMonthlyUpload.disabled = true;
         btnQuickMonthlyUpload.innerText = '⏳ Uploading...';
         try {
-          await uploadMonthlyFiles(files, { autoSelect: true });
+          const monthInput = document.getElementById('monthlyLabelInput');
+          const monthLabel = (monthInput && monthInput.value.trim()) || 'November 2026';
+          await uploadMonthlyFiles(files, { autoSelect: true, monthLabel });
         } catch (err) {
           showError('Monthly Upload Failed', err.message);
         } finally {
@@ -344,15 +346,32 @@ export async function uploadMonthlyFiles(files, { autoSelect = true, monthLabel 
   const result = await res.json();
   if (!res.ok) throw new Error(result.error || 'Failed to upload monthly file(s)');
 
-  appendLog(`✅ Uploaded ${fileArray.length} file(s) successfully to ${result.folder || 'Monthly folder'}!`, 'success');
+  // Track recently uploaded files for visual highlighting
+  pdfGenState.recentUploads = pdfGenState.recentUploads || new Set();
+  fileArray.forEach(f => pdfGenState.recentUploads.add(f.name));
+
+  const countStr = fileArray.length === 1 ? `"${fileArray[0].name}"` : `${fileArray.length} files`;
+  const dateStr = result.date ? ` (Date: ${result.date})` : '';
+  appendLog(`✅ Uploaded ${countStr}${dateStr} successfully into ${result.folder || 'Monthly folder'}!`, 'success');
+
   await loadPdfGenFiles();
 
-  if (autoSelect && (result.folder || result.path)) {
+  if (autoSelect) {
     const monthlySelect = document.getElementById('monthlySourceSelect');
     if (monthlySelect) {
-      const matchVal = result.folder || result.path;
-      if (Array.from(monthlySelect.options).some(o => o.value === matchVal)) {
-        monthlySelect.value = matchVal;
+      const targetVal = (fileArray.length === 1 && result.path) ? result.path : (result.folder || result.path);
+      const normTarget = String(targetVal).replace(/\\/g, '/').toLowerCase();
+      const normAbs = result.folderPath ? String(result.folderPath).replace(/\\/g, '/').toLowerCase() : '';
+      const matchedOpt = Array.from(monthlySelect.options).find(o => {
+        const normOpt = String(o.value).replace(/\\/g, '/').toLowerCase();
+        return normOpt === normTarget ||
+               (normAbs && normOpt === normAbs) ||
+               normOpt.endsWith('/' + normTarget) ||
+               normTarget.endsWith('/' + normOpt);
+      });
+      if (matchedOpt) {
+        monthlySelect.value = matchedOpt.value;
+        monthlySelect.dispatchEvent(new Event('change'));
       }
     }
   }
@@ -407,38 +426,377 @@ function renderPdfSources() {
     const prevVal = monthlySelect.value;
     monthlySelect.innerHTML = '';
 
-    const monthlyCount = (pdfGenState.monthlySources || []).length;
     const dailyCount = (pdfGenState.dailySources || []).length;
 
-    // 1. Month-Specific Folder compilations (isolated by month, e.g. 2026-10, 2026-11)
+    // 1. Month-Specific Groups separated by Month & Date
     if (pdfGenState.monthlyGroups && pdfGenState.monthlyGroups.length > 0) {
       pdfGenState.monthlyGroups.forEach(g => {
+        const optGroup = document.createElement('optgroup');
+        const qCount = g.totalQuestions || (g.count * 30);
+        optGroup.label = `📅 ${g.label} (${g.count} files – ${qCount} Questions)`;
+
+        // Option A: Consolidate entire month
         const optG = document.createElement('option');
         optG.value = g.path;
-        const qCount = g.totalQuestions || (g.count * 30);
-        optG.textContent = `📁 Consolidate ${g.label} (${g.count} files – ${qCount} Questions in Monthly/${g.folder})`;
-        monthlySelect.appendChild(optG);
+        optG.dataset.type = 'month-folder';
+        optG.dataset.monthLabel = g.label;
+        optG.textContent = `📁 Consolidate All ${g.label} (${g.count} files – ${qCount} Qs)`;
+        optGroup.appendChild(optG);
+
+        // Option B: Individual files separated by date
+        if (Array.isArray(g.files) && g.files.length > 0) {
+          g.files.forEach(f => {
+            const optF = document.createElement('option');
+            optF.value = f.path;
+            optF.dataset.type = 'single-file';
+            optF.dataset.monthLabel = g.label;
+            optF.dataset.displayDate = f.displayDate || f.name;
+            optF.dataset.fileName = f.name;
+            const dateLabel = f.displayDate ? `🗓️ ${f.displayDate}` : `📄 ${f.name}`;
+            optF.textContent = `  ${dateLabel} (${f.name})`;
+            optGroup.appendChild(optF);
+          });
+        }
+
+        monthlySelect.appendChild(optGroup);
       });
     }
 
-    const optMonthlyAll = document.createElement('option');
-    optMonthlyAll.value = 'monthly-all';
-    const monthlyQCount = pdfGenState.monthlyTotalQuestions || (monthlyCount * 30);
-    optMonthlyAll.textContent = `📁 Consolidate all files in Uploaded Documents/Monthly (${monthlyCount} files – ${monthlyQCount} Total Questions)`;
-    monthlySelect.appendChild(optMonthlyAll);
-
+    // 2. Daily Uploads group with separate date options
+    const dailyGroup = document.createElement('optgroup');
+    dailyGroup.label = `📁 Daily Uploads (${dailyCount} files)`;
     const optDailyAll = document.createElement('option');
     optDailyAll.value = 'daily-all';
+    optDailyAll.dataset.type = 'daily-all';
     optDailyAll.textContent = `📁 Consolidate all files in Daily Uploads (${dailyCount} files)`;
-    monthlySelect.appendChild(optDailyAll);
+    dailyGroup.appendChild(optDailyAll);
 
+    if (Array.isArray(pdfGenState.dailySources) && pdfGenState.dailySources.length > 0) {
+      pdfGenState.dailySources.forEach(f => {
+        const optDF = document.createElement('option');
+        optDF.value = f.path;
+        optDF.dataset.type = 'single-file';
+        optDF.dataset.monthLabel = f.monthLabel || '';
+        optDF.dataset.displayDate = f.displayDate || f.name;
+        optDF.dataset.fileName = f.name;
+        const dateLabel = f.displayDate ? `🗓️ ${f.displayDate}` : `📄 ${f.name}`;
+        optDF.textContent = `  ${dateLabel} (${f.name})`;
+        dailyGroup.appendChild(optDF);
+      });
+    }
+    monthlySelect.appendChild(dailyGroup);
+
+    // Restore previous selection if still valid, or default to first month consolidation
     if (prevVal && Array.from(monthlySelect.options).some(o => o.value === prevVal)) {
       monthlySelect.value = prevVal;
     } else if (pdfGenState.monthlyGroups && pdfGenState.monthlyGroups.length > 0) {
       monthlySelect.value = pdfGenState.monthlyGroups[0].path;
     } else {
-      monthlySelect.value = monthlyCount > 0 ? 'monthly-all' : 'daily-all';
+      monthlySelect.value = 'daily-all';
     }
+
+    // Attach change listener once if not attached
+    if (!monthlySelect.__hasChangeListener) {
+      monthlySelect.__hasChangeListener = true;
+      monthlySelect.addEventListener('change', () => {
+        const selectedOpt = monthlySelect.options[monthlySelect.selectedIndex];
+        if (!selectedOpt) return;
+        const monthInput = document.getElementById('monthlyLabelInput');
+        if (selectedOpt.dataset.monthLabel && monthInput) {
+          monthInput.value = selectedOpt.dataset.monthLabel;
+        }
+        const btnGen = document.getElementById('btnGenerateMonthlyDoc');
+        if (btnGen) {
+          if (selectedOpt.dataset.type === 'single-file') {
+            btnGen.innerHTML = `⚡ Generate Quiz for ${selectedOpt.dataset.displayDate || 'this Date'} (DOCX)`;
+          } else {
+            btnGen.innerHTML = '📚 Generate Monthly Topic-Wise (DOCX)';
+          }
+        }
+      });
+    }
+
+    // Immediately trigger change to sync Month & Year Label input with active month
+    monthlySelect.dispatchEvent(new Event('change'));
+
+    // Render the expandable tree dropdown (month-only by default; click > expands files)
+    renderMonthlyTreeDropdown();
+  }
+}
+
+/**
+ * Expandable Tree Dropdown for Monthly Source:
+ * Shows only the month row (e.g. October 2026 >). Clicking [>] expands all files in that month.
+ */
+function renderMonthlyTreeDropdown() {
+  const trigger = document.getElementById('monthlyDropdownTrigger');
+  const menu = document.getElementById('monthlyDropdownMenu');
+  const selectedTextEl = document.getElementById('monthlySelectedText');
+  const chevron = document.getElementById('monthlyTriggerChevron');
+  const monthlySelect = document.getElementById('monthlySourceSelect');
+  if (!trigger || !menu || !monthlySelect) return;
+
+  menu.innerHTML = '';
+
+  const groups = pdfGenState.monthlyGroups || [];
+  const dailyCount = (pdfGenState.dailySources || []).length;
+
+  function syncTriggerText() {
+    const selOpt = monthlySelect.options[monthlySelect.selectedIndex];
+    if (!selOpt || !selectedTextEl) return;
+
+    if (selOpt.dataset.type === 'month-folder') {
+      const g = groups.find(grp => grp.path === selOpt.value);
+      const count = g ? g.count : (selOpt.dataset.count || '');
+      const qCount = g ? (g.totalQuestions || g.count * 30) : '';
+      selectedTextEl.innerHTML = `
+        <span style="font-weight: 700;">📁 ${escapeHtml(selOpt.dataset.monthLabel || selOpt.textContent)}</span>
+        <span style="font-size: 11px; font-weight: 700; background: rgba(139,92,246,0.22); color: var(--accent-purple, #a855f7); border: 1px solid rgba(139,92,246,0.4); padding: 2px 8px; border-radius: 12px; margin-left: 6px; white-space: nowrap; flex-shrink: 0;">
+          ${count} files · ${qCount} Qs
+        </span>
+      `;
+    } else if (selOpt.value === 'daily-all') {
+      const qCount = dailyCount * 30;
+      selectedTextEl.innerHTML = `
+        <span style="font-weight: 700;">📁 Daily Uploads</span>
+        <span style="font-size: 11px; font-weight: 700; background: rgba(37,99,235,0.2); color: #60a5fa; border: 1px solid rgba(37,99,235,0.35); padding: 2px 8px; border-radius: 12px; margin-left: 6px; white-space: nowrap; flex-shrink: 0;">
+          ${dailyCount} files · ${qCount} Qs
+        </span>
+      `;
+    } else if (selOpt.dataset.type === 'single-file') {
+      const dLabel = selOpt.dataset.displayDate || selOpt.dataset.fileName || 'Selected Date';
+      selectedTextEl.innerHTML = `
+        <span style="font-weight: 600;">🗓️ ${escapeHtml(dLabel)}</span>
+        <span style="font-size: 11px; font-weight: 700; background: rgba(16,185,129,0.18); color: #34d399; border: 1px solid rgba(16,185,129,0.35); padding: 2px 6px; border-radius: 10px; margin-left: 6px; white-space: nowrap; flex-shrink: 0;">
+          30 Qs
+        </span>
+      `;
+    } else {
+      selectedTextEl.textContent = selOpt.textContent.trim();
+    }
+  }
+
+  // Helper functions for opening / closing
+  function openDropdown() {
+    menu.classList.remove('hidden');
+    trigger.setAttribute('aria-expanded', 'true');
+    if (chevron) chevron.style.transform = 'rotate(180deg)';
+  }
+
+  function closeDropdown() {
+    menu.classList.add('hidden');
+    trigger.setAttribute('aria-expanded', 'false');
+    if (chevron) chevron.style.transform = 'rotate(0deg)';
+  }
+
+  function toggleDropdown() {
+    if (menu.classList.contains('hidden')) {
+      openDropdown();
+    } else {
+      closeDropdown();
+    }
+  }
+
+  // 1. Month Groups (e.g. October 2026, November 2026)
+  groups.forEach(g => {
+    const qCount = g.totalQuestions || (g.count * 30);
+    const groupWrap = document.createElement('div');
+    groupWrap.className = 'tree-group';
+
+    // Header Row: Month title + distinct count/question badge + expand icon [▶]
+    const headerRow = document.createElement('div');
+    headerRow.className = 'tree-month-row';
+    if (monthlySelect.value === g.path) headerRow.classList.add('selected');
+
+    const selectMonthBtn = document.createElement('div');
+    selectMonthBtn.style.cssText = 'flex: 1; display: flex; align-items: center; justify-content: space-between; gap: 8px; overflow: hidden; cursor: pointer; padding-right: 4px;';
+    selectMonthBtn.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 8px; overflow: hidden;">
+        <span style="font-size: 15px;">📁</span>
+        <span style="font-weight: 700; font-size: 13px; color: var(--text-main); white-space: nowrap;">
+          ${escapeHtml(g.label)}
+        </span>
+      </div>
+      <span style="font-size: 11px; font-weight: 700; background: rgba(139,92,246,0.22); color: var(--accent-purple, #a855f7); border: 1px solid rgba(139,92,246,0.4); padding: 2px 8px; border-radius: 12px; white-space: nowrap; flex-shrink: 0;">
+        ${g.count} files · ${qCount} Qs
+      </span>
+    `;
+    selectMonthBtn.addEventListener('click', () => {
+      monthlySelect.value = g.path;
+      monthlySelect.dispatchEvent(new Event('change'));
+      syncTriggerText();
+      closeDropdown();
+    });
+
+    // Expand icon button: clicking it reveals all files for this month
+    const expandBtn = document.createElement('button');
+    expandBtn.type = 'button';
+    expandBtn.className = 'tree-expand-btn';
+    expandBtn.title = `Click to view all ${g.count} files in ${g.label}`;
+    expandBtn.innerHTML = '▶';
+
+    const subList = document.createElement('div');
+    subList.className = 'tree-sub-list hidden';
+    subList.id = `treeSub-${g.folder}`;
+
+    expandBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isHidden = subList.classList.contains('hidden');
+      if (isHidden) {
+        subList.classList.remove('hidden');
+        expandBtn.innerHTML = '▼';
+        expandBtn.classList.add('expanded');
+      } else {
+        subList.classList.add('hidden');
+        expandBtn.innerHTML = '▶';
+        expandBtn.classList.remove('expanded');
+      }
+    });
+
+    headerRow.appendChild(selectMonthBtn);
+    headerRow.appendChild(expandBtn);
+    groupWrap.appendChild(headerRow);
+
+    // Populate individual files inside subList (collapsed by default)
+    if (Array.isArray(g.files) && g.files.length > 0) {
+      g.files.forEach(f => {
+        const fileRow = document.createElement('div');
+        fileRow.className = 'tree-file-row';
+        if (monthlySelect.value === f.path) fileRow.classList.add('selected');
+        const dLabel = f.displayDate ? escapeHtml(f.displayDate) : escapeHtml(f.name);
+        fileRow.innerHTML = `
+          <span>🗓️</span>
+          <span style="flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+            <strong>${dLabel}</strong> <span style="font-size: 11px; opacity: 0.75;">(${escapeHtml(f.name)})</span>
+          </span>
+          <span style="font-size: 10px; font-weight: 700; background: rgba(16,185,129,0.15); color: #34d399; padding: 1px 6px; border-radius: 8px; flex-shrink: 0;">
+            30 Qs
+          </span>
+        `;
+        fileRow.addEventListener('click', () => {
+          monthlySelect.value = f.path;
+          monthlySelect.dispatchEvent(new Event('change'));
+          syncTriggerText();
+          closeDropdown();
+        });
+        subList.appendChild(fileRow);
+      });
+    }
+
+    groupWrap.appendChild(subList);
+    menu.appendChild(groupWrap);
+  });
+
+  // 2. Daily Uploads Group
+  const dailyWrap = document.createElement('div');
+  dailyWrap.className = 'tree-group';
+
+  const dailyHeader = document.createElement('div');
+  dailyHeader.className = 'tree-month-row';
+  if (monthlySelect.value === 'daily-all') dailyHeader.classList.add('selected');
+
+  const selectDailyBtn = document.createElement('div');
+  selectDailyBtn.style.cssText = 'flex: 1; display: flex; align-items: center; justify-content: space-between; gap: 8px; overflow: hidden; cursor: pointer; padding-right: 4px;';
+  selectDailyBtn.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 8px; overflow: hidden;">
+      <span style="font-size: 15px;">📁</span>
+      <span style="font-weight: 700; font-size: 13px; color: var(--text-main); white-space: nowrap;">
+        Daily Uploads
+      </span>
+    </div>
+    <span style="font-size: 11px; font-weight: 700; background: rgba(37,99,235,0.2); color: #60a5fa; border: 1px solid rgba(37,99,235,0.35); padding: 2px 8px; border-radius: 12px; white-space: nowrap; flex-shrink: 0;">
+      ${dailyCount} files · ${dailyCount * 30} Qs
+    </span>
+  `;
+  selectDailyBtn.addEventListener('click', () => {
+    monthlySelect.value = 'daily-all';
+    monthlySelect.dispatchEvent(new Event('change'));
+    syncTriggerText();
+    closeDropdown();
+  });
+
+  const dailyExpandBtn = document.createElement('button');
+  dailyExpandBtn.type = 'button';
+  dailyExpandBtn.className = 'tree-expand-btn';
+  dailyExpandBtn.title = `Click to view all ${dailyCount} daily files`;
+  dailyExpandBtn.innerHTML = '▶';
+
+  const dailySubList = document.createElement('div');
+  dailySubList.className = 'tree-sub-list hidden';
+
+  dailyExpandBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isHidden = dailySubList.classList.contains('hidden');
+    if (isHidden) {
+      dailySubList.classList.remove('hidden');
+      dailyExpandBtn.innerHTML = '▼';
+      dailyExpandBtn.classList.add('expanded');
+    } else {
+      dailySubList.classList.add('hidden');
+      dailyExpandBtn.innerHTML = '▶';
+      dailyExpandBtn.classList.remove('expanded');
+    }
+  });
+
+  dailyHeader.appendChild(selectDailyBtn);
+  dailyHeader.appendChild(dailyExpandBtn);
+  dailyWrap.appendChild(dailyHeader);
+
+  if (Array.isArray(pdfGenState.dailySources) && pdfGenState.dailySources.length > 0) {
+    pdfGenState.dailySources.forEach(f => {
+      const fileRow = document.createElement('div');
+      fileRow.className = 'tree-file-row';
+      if (monthlySelect.value === f.path) fileRow.classList.add('selected');
+      const dLabel = f.displayDate ? escapeHtml(f.displayDate) : escapeHtml(f.name);
+      fileRow.innerHTML = `
+        <span>🗓️</span>
+        <span style="flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+          <strong>${dLabel}</strong> <span style="font-size: 11px; opacity: 0.75;">(${escapeHtml(f.name)})</span>
+        </span>
+        <span style="font-size: 10px; font-weight: 700; background: rgba(16,185,129,0.15); color: #34d399; padding: 1px 6px; border-radius: 8px; flex-shrink: 0;">
+          30 Qs
+        </span>
+      `;
+      fileRow.addEventListener('click', () => {
+        monthlySelect.value = f.path;
+        monthlySelect.dispatchEvent(new Event('change'));
+        syncTriggerText();
+        closeDropdown();
+      });
+      dailySubList.appendChild(fileRow);
+    });
+  }
+
+  dailyWrap.appendChild(dailySubList);
+  menu.appendChild(dailyWrap);
+
+  // Sync initial trigger text
+  syncTriggerText();
+
+  // Bind trigger click once
+  if (!trigger.__hasTreeClick) {
+    trigger.__hasTreeClick = true;
+    trigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleDropdown();
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!trigger.contains(e.target) && !menu.contains(e.target)) {
+        closeDropdown();
+      }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeDropdown();
+    });
+  }
+
+  if (!monthlySelect.__hasTreeSync) {
+    monthlySelect.__hasTreeSync = true;
+    monthlySelect.addEventListener('change', () => {
+      syncTriggerText();
+    });
   }
 }
 
@@ -664,7 +1022,9 @@ async function onGenerateMonthly(customTarget = null, customLabel = null) {
   const targetVal = customTarget || (monthlySelect ? monthlySelect.value : 'monthly-all');
 
   const monthInput = document.getElementById('monthlyLabelInput');
-  const monthLabel = customLabel || (monthInput && monthInput.value.trim()) || 'November 2026';
+  const selectedOpt = monthlySelect ? monthlySelect.options[monthlySelect.selectedIndex] : null;
+  const inferredLabel = (selectedOpt && selectedOpt.dataset.monthLabel) || (monthInput && monthInput.value.trim()) || 'November 2026';
+  const monthLabel = customLabel || inferredLabel;
 
   const btn = document.getElementById('btnGenerateMonthlyDoc');
   if (btn) {

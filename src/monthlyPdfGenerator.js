@@ -91,10 +91,18 @@ async function generateMonthlyQuiz(sourceFolderPath, monthLabel, onLog) {
     ? DEFAULT_MONTHLY_TEMPLATE_PATH
     : null;
 
+  const isSingleFile = fs.existsSync(sourceFolderPath) && fs.statSync(sourceFolderPath).isFile();
+  let filePrefix = 'Monthly_TopicWise';
+  if (isSingleFile) {
+    const singleParsed = parseDateFromFilename(path.basename(sourceFolderPath));
+    const dayTag = singleParsed ? singleParsed.shortDate.replace(/\s+/g, '_') : path.basename(sourceFolderPath, '.docx').replace(/\s+/g, '_');
+    filePrefix = `Quiz_${dayTag}`;
+  }
+
   // Only generate English monthly if there are English questions
   if (englishQuestions.length > 0) {
     log({ type: 'info', message: `📝 Generating English Monthly Topic-Wise DOCX (${englishQuestions.length} Qs)...` });
-    const enDocx = path.join(monthlyDir, `Monthly_TopicWise_${safeName}_English.docx`);
+    const enDocx = path.join(monthlyDir, `${filePrefix}_${safeName}_English.docx`);
     const enPdf = enDocx.replace(/\.docx$/i, '.pdf');
 
     if (monthlyTemplate) {
@@ -133,7 +141,7 @@ async function generateMonthlyQuiz(sourceFolderPath, monthLabel, onLog) {
   // Only generate Hindi monthly if there are Hindi questions
   if (hindiQuestions.length > 0) {
     log({ type: 'info', message: `📝 Generating Hindi Monthly Topic-Wise DOCX (${hindiQuestions.length} Qs)...` });
-    const hiDocx = path.join(monthlyDir, `Monthly_TopicWise_${safeName}_Hindi.docx`);
+    const hiDocx = path.join(monthlyDir, `${filePrefix}_${safeName}_Hindi.docx`);
     const hiPdf = hiDocx.replace(/\.docx$/i, '.pdf');
 
     if (monthlyTemplate) {

@@ -14,7 +14,7 @@ const { ensureAuthenticatedSession, ensureValidSession, getSessionInfo, loginWit
 const { generateDailyQuiz, generateFromParsedQuiz } = require('./dailyPdfGenerator');
 const { generateMonthlyQuiz } = require('./monthlyPdfGenerator');
 const { generateModernDailyPdf } = require('./modernPdfGenerator');
-const { listSourceFiles, listGeneratedFiles, OUTPUT_DIR, getMonthFolder } = require('./quizParser');
+const { listSourceFiles, listGeneratedFiles, OUTPUT_DIR, getMonthFolder, parseDateFromFilename, organizeMonthlyFiles } = require('./quizParser');
 const { convertDocxToPdf } = require('./docxToPdf');
 const { testPdfLayout } = require('./automatedLayoutTester');
 
@@ -37,10 +37,18 @@ const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     let folderName = path.join('Uploaded Documents', 'Quiz');
     if (req.query.folder === 'monthly') {
-      const monthSub = req.query.month ? getMonthFolder(req.query.month) : '';
-      folderName = monthSub
-        ? path.join('Uploaded Documents', 'Monthly', monthSub)
-        : path.join('Uploaded Documents', 'Monthly');
+      let monthSub = '';
+      if (file && file.originalname) {
+        const parsed = parseDateFromFilename(file.originalname);
+        if (parsed) monthSub = parsed.monthFolder;
+      }
+      if (!monthSub && req.query.month) {
+        monthSub = getMonthFolder(req.query.month);
+      }
+      if (!monthSub) {
+        monthSub = getMonthFolder(new Date());
+      }
+      folderName = path.join('Uploaded Documents', 'Monthly', monthSub);
     } else if (req.query.folder === 'daily') {
       folderName = path.join('Uploaded Documents', 'Daily');
     }
@@ -646,34 +654,39 @@ app.post('/api/pdf-gen/upload', (req, res) => {
       return res.status(400).json({ error: 'No file received' });
     }
 
-    let subfolder = 'Quiz';
-    if (req.query.folder === 'monthly') {
-      const monthSub = req.query.month ? getMonthFolder(req.query.month) : '';
-      subfolder = monthSub ? path.join('Monthly', monthSub) : 'Monthly';
-    } else if (req.query.folder === 'daily') {
-      subfolder = 'Daily';
-    }
-
-    const folderRelative = path.join('Uploaded Documents', subfolder).replace(/\\/g, '/');
-
     const uploaded = files.map(f => {
+      const destRel = f.destination
+        ? path.relative(ROOT_DIR, f.destination).replace(/\\/g, '/')
+        : 'Uploaded Documents';
+      const parsedDate = parseDateFromFilename(f.originalname);
       broadcastEvent({
         type: 'pdf-gen-log',
-        message: `📥 Source file uploaded to ${folderRelative}: ${f.originalname} (${Math.round(f.size / 1024)} KB)`
+        message: `📥 Source file uploaded to ${destRel}: ${f.originalname} (${Math.round(f.size / 1024)} KB)`
       });
       return {
         name: f.originalname,
         path: f.path,
-        size: f.size
+        size: f.size,
+        date: parsedDate ? parsedDate.displayDate : null,
+        dateLabel: parsedDate ? parsedDate.dayPart : null,
+        monthFolder: parsedDate ? parsedDate.monthFolder : null,
+        monthLabel: parsedDate ? parsedDate.monthLabel : null
       };
     });
+
+    const primaryDest = files[0].destination
+      ? path.relative(ROOT_DIR, files[0].destination).replace(/\\/g, '/')
+      : 'Uploaded Documents/Monthly';
 
     res.json({
       success: true,
       files: uploaded,
       name: uploaded[0].name,
       path: uploaded[0].path,
-      folder: folderRelative
+      folder: primaryDest,
+      folderPath: files[0].destination || path.join(ROOT_DIR, primaryDest),
+      date: uploaded[0].date,
+      monthLabel: uploaded[0].monthLabel
     });
   });
 });
@@ -694,6 +707,9 @@ function monthLabelFromFolder(folderName) {
  */
 app.get('/api/pdf-gen/files', (req, res) => {
   try {
+    // Automatically organize any root-level loose files in Uploaded Documents/Monthly into date/month subfolders
+    organizeMonthlyFiles(ROOT_DIR);
+
     const uploadedDailyDir = path.join(ROOT_DIR, 'Uploaded Documents', 'Daily');
     const legacyDailyDir = path.join(ROOT_DIR, 'Daily PDF');
 
@@ -710,7 +726,7 @@ app.get('/api/pdf-gen/files', (req, res) => {
     if (fs.existsSync(uploadedMonthlyDir)) {
       const entries = fs.readdirSync(uploadedMonthlyDir, { withFileTypes: true });
       for (const ent of entries) {
-        if (ent.isDirectory()) {
+        if (ent.isDirectory() && ent.name !== 'extracted_assets') {
           const subDir = path.join(uploadedMonthlyDir, ent.name);
           const subFiles = listSourceFiles(subDir);
           if (subFiles.length > 0) {
@@ -719,13 +735,17 @@ app.get('/api/pdf-gen/files', (req, res) => {
               label: monthLabelFromFolder(ent.name),
               path: subDir,
               count: subFiles.length,
-              totalQuestions: subFiles.length * 30
+              totalQuestions: subFiles.length * 30,
+              files: subFiles
             });
             uploadedMonthlySubFiles.push(...subFiles);
           }
         }
       }
     }
+
+    // Sort monthly groups descending (latest month first, e.g. 2026-11, 2026-10)
+    monthlyGroups.sort((a, b) => b.folder.localeCompare(a.folder));
 
     // Filter out template files so source selector only displays actual test quizzes
     const isDailyTemplate = (name) => /Affairscloud|Current Affairs Q&A PDF/i.test(name);

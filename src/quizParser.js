@@ -725,6 +725,7 @@ async function parseDailySource(filePath) {
         number: questions.length + 1,
         section: finalSection,
         topic: topicFromDoc || finalSection,
+        topicFromDoc: topicFromDoc || '',
         difficulty: difficultyFromDoc || 'Moderate',
         questionText: questionText.trim(),
         statements,
@@ -763,8 +764,19 @@ function standardizeQuestions(rawQuestions, defaultDate = '', mode = 'daily') {
       answer = `${q.answerKey}) ${q.answerText || ''}`.trim();
     }
 
+    // For monthly mode, prioritize specific "Topic Name – ..." extracted from the question explanation
+    // (e.g. Defence, MoUs, Index, Govt Schemes, Visits, Banking, etc.) over broad daily section headers.
+    let rawSectionToNormalize = q.section || 'NATIONAL AFFAIRS';
+    if (mode === 'monthly') {
+      const candidate = (q.topicFromDoc && q.topicFromDoc.trim()) ||
+        (q.topic && q.topic !== q.section ? q.topic : '');
+      if (candidate && !/^(?:Easy|Moderate|Difficult)$/i.test(candidate)) {
+        rawSectionToNormalize = candidate;
+      }
+    }
+
     const section = mode === 'monthly'
-      ? normalizeMonthlySection(q.section || q.topic || 'NATIONAL AFFAIRS')
+      ? normalizeMonthlySection(rawSectionToNormalize)
       : (q.section || 'NATIONAL AFFAIRS');
 
     return {
@@ -1009,14 +1021,139 @@ function getMonthFolder(monthLabel) {
   return `${yyyy}-${mm}`;
 }
 
+function parseDateFromFilename(filename) {
+  if (!filename) return null;
+  const months = {
+    jan: { num: '01', name: 'January' },
+    feb: { num: '02', name: 'February' },
+    mar: { num: '03', name: 'March' },
+    apr: { num: '04', name: 'April' },
+    may: { num: '05', name: 'May' },
+    jun: { num: '06', name: 'June' },
+    jul: { num: '07', name: 'July' },
+    aug: { num: '08', name: 'August' },
+    sep: { num: '09', name: 'September' },
+    oct: { num: '10', name: 'October' },
+    nov: { num: '11', name: 'November' },
+    dec: { num: '12', name: 'December' }
+  };
+
+  const rawName = String(filename).replace(/\.docx$/i, '');
+  
+  // Year match (e.g. 2026, 2027); default to current year or 2026
+  const yearMatch = rawName.match(/20\d{2}/);
+  const currentYear = new Date().getFullYear();
+  const year = yearMatch ? yearMatch[0] : (currentYear >= 2024 ? String(currentYear) : '2026');
+
+  // Strip year from name temporarily for day matching so year doesn't get captured as day
+  const nameWithoutYear = rawName.replace(/20\d{2}/g, ' ');
+
+  // Month match
+  const monthMatch = nameWithoutYear.match(/(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)/i);
+  if (!monthMatch) return null;
+
+  const mKey = monthMatch[1].slice(0, 3).toLowerCase();
+  const mInfo = months[mKey];
+  if (!mInfo) return null;
+
+  // Day match: e.g. 20th Oct, Oct -01, Oct 02&03, Nov 7,8&9, 28th Oct, 24 November, Quiz_Nov_15
+  let dayPart = '';
+  const beforeRegex = new RegExp('(\\d{1,2}(?:st|nd|rd|th)?(?:[\\s,&-]+(?:and\\s*)?\\d{1,2}(?:st|nd|rd|th)?)*)\\s*[-_\\s]*' + monthMatch[1], 'i');
+  const beforeMatchExact = nameWithoutYear.match(beforeRegex);
+
+  const afterRegex = new RegExp(monthMatch[1] + '[-_\\s]*(\\d{1,2}(?:st|nd|rd|th)?(?:[\\s,&-]+(?:and\\s*)?\\d{1,2}(?:st|nd|rd|th)?)*)', 'i');
+  const afterMatch = nameWithoutYear.match(afterRegex);
+
+  if (beforeMatchExact && beforeMatchExact[1].trim()) {
+    dayPart = beforeMatchExact[1].trim();
+  } else if (afterMatch && afterMatch[1].trim()) {
+    dayPart = afterMatch[1].trim();
+  }
+
+  // Clean up dayPart
+  if (dayPart) {
+    dayPart = dayPart.replace(/^[-_,\s]+|[-_,\s]+$/g, '');
+  }
+
+  // numeric day for sorting (first number found)
+  const firstNum = dayPart ? (dayPart.match(/\d+/) ? parseInt(dayPart.match(/\d+/)[0], 10) : 0) : 0;
+
+  const monthFolder = `${year}-${mInfo.num}`;
+  const monthLabel = `${mInfo.name} ${year}`;
+  const displayDate = dayPart ? `${mInfo.name} ${dayPart}, ${year}` : monthLabel;
+  const shortDate = dayPart ? `${mInfo.name.slice(0, 3)} ${dayPart}` : mInfo.name.slice(0, 3);
+
+  return {
+    year,
+    monthNum: mInfo.num,
+    monthName: mInfo.name,
+    monthFolder,
+    monthLabel,
+    dayPart,
+    dayNumber: firstNum,
+    displayDate,
+    shortDate
+  };
+}
+
 /**
- * List files helper
+ * Automatically organizes loose .docx files in Uploaded Documents/Monthly into separate date/month subfolders (e.g. 2026-10, 2026-11)
+ */
+function organizeMonthlyFiles(rootDir = path.join(__dirname, '..')) {
+  const uploadedMonthlyDir = path.join(rootDir, 'Uploaded Documents', 'Monthly');
+  if (!fs.existsSync(uploadedMonthlyDir)) return;
+  const entries = fs.readdirSync(uploadedMonthlyDir, { withFileTypes: true });
+  for (const ent of entries) {
+    if (ent.isFile() && ent.name.endsWith('.docx') && !ent.name.startsWith('~$')) {
+      const parsed = parseDateFromFilename(ent.name);
+      const targetSub = parsed ? parsed.monthFolder : getMonthFolder(new Date());
+      const targetDir = path.join(uploadedMonthlyDir, targetSub);
+      if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
+      const oldPath = path.join(uploadedMonthlyDir, ent.name);
+      const newPath = path.join(targetDir, ent.name);
+      try {
+        fs.renameSync(oldPath, newPath);
+      } catch (err) {
+        console.warn(`Could not move ${ent.name} to ${targetDir}:`, err.message);
+      }
+    }
+  }
+}
+
+/**
+ * List files helper enriched with date parsing and file stats
  */
 function listSourceFiles(folderPath) {
   if (!fs.existsSync(folderPath)) return [];
   return fs.readdirSync(folderPath)
     .filter(f => f.endsWith('.docx') && !f.startsWith('~$'))
-    .map(f => ({ name: f, path: path.join(folderPath, f), folder: path.basename(folderPath) }));
+    .map(f => {
+      const fullPath = path.join(folderPath, f);
+      let stat = null;
+      try { stat = fs.statSync(fullPath); } catch {}
+      const parsedDate = parseDateFromFilename(f);
+      return {
+        name: f,
+        path: fullPath,
+        folder: path.basename(folderPath),
+        size: stat ? stat.size : 0,
+        mtime: stat ? stat.mtimeMs : 0,
+        mtimeDate: stat ? stat.mtime : null,
+        date: parsedDate ? parsedDate.displayDate : null,
+        displayDate: parsedDate ? parsedDate.displayDate : f.replace(/\.docx$/i, ''),
+        shortDate: parsedDate ? parsedDate.shortDate : null,
+        dayPart: parsedDate ? parsedDate.dayPart : '',
+        dayNumber: parsedDate ? parsedDate.dayNumber : 0,
+        monthFolder: parsedDate ? parsedDate.monthFolder : '',
+        monthLabel: parsedDate ? parsedDate.monthLabel : ''
+      };
+    })
+    .sort((a, b) => {
+      if (a.dayNumber && b.dayNumber && a.dayNumber !== b.dayNumber) {
+        return a.dayNumber - b.dayNumber;
+      }
+      return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+    });
 }
 
 function listGeneratedFiles() {
@@ -1103,6 +1240,8 @@ module.exports = {
   listGeneratedFiles,
   getDateFolder,
   getMonthFolder,
+  parseDateFromFilename,
+  organizeMonthlyFiles,
   OUTPUT_DIR
 };
 
