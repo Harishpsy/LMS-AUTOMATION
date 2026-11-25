@@ -6,7 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const { chromium } = require('playwright');
-const { launchChromium } = require('./browserLauncher');
+const { launchChromium, newStealthContext } = require('./browserLauncher');
 const { parseQuizDocx } = require('./parser');
 const { verifyDocumentContent } = require('./agents/contentVerificationAgent');
 const { uploadQuizQuestions } = require('./uploader');
@@ -392,7 +392,7 @@ app.get('/api/quizzes', async (req, res) => {
     await ensureValidSession(console.log);
 
     browser = await launchChromium({ headless: true });
-    const context = await browser.newContext({ storageState: STORAGE_PATH });
+    const context = await newStealthContext(browser, { storageState: STORAGE_PATH });
     const page = await context.newPage();
 
     await page.goto(`https://lms.careerscloud.in/courses/view/${courseId}`, { waitUntil: 'networkidle', timeout: 30000 });

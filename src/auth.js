@@ -1,5 +1,5 @@
 const { chromium } = require('playwright');
-const { launchChromium } = require('./browserLauncher');
+const { launchChromium, newStealthContext } = require('./browserLauncher');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -299,11 +299,40 @@ async function loginWithCredentials({
   onLog(`🔐 Logging in to CareersCloud LMS as ${email}...`);
 
   const browser = await launchChromium({ headless });
-  const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const context = await newStealthContext(browser, { viewport: { width: 1366, height: 768 } });
   const page = await context.newPage();
 
   try {
-    await page.goto('https://lms.careerscloud.in/', { waitUntil: 'networkidle', timeout: 35000 });
+    // Initial load — use domcontentloaded first so we can detect Cloudflare quickly
+    await page.goto('https://lms.careerscloud.in/', { waitUntil: 'domcontentloaded', timeout: 35000 });
+
+    // ── Cloudflare / Turnstile challenge handler ───────────────────────────
+    // If Cloudflare intercepts (title "Just a moment..."), wait up to 20 s for it
+    // to auto-solve (it often does once the browser looks legitimate).
+    const cfCheckStart = Date.now();
+    while (Date.now() - cfCheckStart < 20000) {
+      const title = await page.title().catch(() => '');
+      const url = page.url();
+      if (title.includes('Just a moment') || title.includes('Attention Required') ||
+          url.includes('challenges.cloudflare.com')) {
+        onLog('⏳ Cloudflare challenge detected — waiting for auto-resolution...');
+        await page.waitForTimeout(2000);
+        // Wait for the challenge iframe / spinner to disappear
+        const resolved = await page.waitForFunction(() => {
+          const t = document.title;
+          return !t.includes('Just a moment') && !t.includes('Attention Required');
+        }, { timeout: 15000 }).then(() => true).catch(() => false);
+        if (!resolved) {
+          throw new Error('Cloudflare Bot Protection / Turnstile triggered ("Just a moment..."). The challenge could not be auto-resolved. Please ensure this machine\'s IP is whitelisted in Cloudflare WAF (Security → WAF → IP Access Rules).');
+        }
+        onLog('✅ Cloudflare challenge resolved automatically.');
+        // After CF clears, wait for the actual page to settle
+        await page.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});
+        break;
+      } else {
+        break; // No Cloudflare challenge — proceed normally
+      }
+    }
 
     const emailInput = page.locator('#admin-email');
     try {
@@ -312,9 +341,10 @@ async function loginWithCredentials({
       const pageTitle = await page.title().catch(() => 'unknown');
       const currentUrl = page.url();
       const bodySnippet = await page.evaluate(() => document.body ? document.body.innerText.slice(0, 300) : '').catch(() => '');
-      
-      if (bodySnippet.includes('Verify you are human') || bodySnippet.includes('Cloudflare') || pageTitle.includes('Just a moment') || pageTitle.includes('Attention Required')) {
-        throw new Error(`Cloudflare Bot Protection / Turnstile triggered ("${pageTitle}"). Your team needs to whitelist Render's Outbound IP in Cloudflare WAF.`);
+
+      if (bodySnippet.includes('Verify you are human') || bodySnippet.includes('Cloudflare') ||
+          pageTitle.includes('Just a moment') || pageTitle.includes('Attention Required')) {
+        throw new Error(`Cloudflare Bot Protection / Turnstile triggered ("${pageTitle}"). Please whitelist this machine's public IP in Cloudflare WAF → Security → IP Access Rules.`);
       }
       throw new Error(`Could not find login form on ${currentUrl} (Page Title: "${pageTitle}"). Error: ${waitErr.message}`);
     }
@@ -459,7 +489,7 @@ async function getAuthenticatedPage(options = { headless: false }) {
 
   if (fs.existsSync(STORAGE_PATH)) {
     try {
-      context = await browser.newContext({ storageState: STORAGE_PATH });
+      context = await newStealthContext(browser, { storageState: STORAGE_PATH });
       const page = await context.newPage();
       await page.goto('https://lms.careerscloud.in/courses/view/104', { waitUntil: 'domcontentloaded' });
 
@@ -477,7 +507,7 @@ async function getAuthenticatedPage(options = { headless: false }) {
 
   // Attempt automated login if credentials exist in .env
   await loginWithCredentials({ headless: options.headless, onLog: console.log });
-  context = await browser.newContext({ storageState: STORAGE_PATH });
+  context = await newStealthContext(browser, { storageState: STORAGE_PATH });
   const page = await context.newPage();
   await page.goto('https://lms.careerscloud.in/courses/view/104', { waitUntil: 'networkidle' });
   return { browser, context, page };

@@ -1,5 +1,5 @@
 const { chromium } = require('playwright');
-const { launchChromium } = require('./browserLauncher');
+const { launchChromium, newStealthContext } = require('./browserLauncher');
 const path = require('path');
 const fs = require('fs');
 require('dotenv').config();
@@ -521,9 +521,9 @@ async function uploadQuizQuestions(quizData, options = {}, onProgress = () => { 
       onProgress({ type: 'log', message: `Connecting to Course ${courseId} to find quiz target...`, level: 'info' });
       onProgress({ type: 'progress', percent: 2, message: `Opening Course ${courseId}...` });
 
-      const discoveryContext = await browser.newContext({
+      const discoveryContext = await newStealthContext(browser, {
         storageState: fs.existsSync(STORAGE_PATH) ? STORAGE_PATH : undefined,
-        viewport: isHeadless ? { width: 1280, height: 900 } : null
+        viewport: isHeadless ? { width: 1366, height: 900 } : null
       });
       const discoveryPage = await discoveryContext.newPage();
 
@@ -645,9 +645,9 @@ async function uploadQuizQuestions(quizData, options = {}, onProgress = () => { 
         await new Promise(r => setTimeout(r, (workerId - 1) * 1500));
       }
 
-      const workerContext = await browser.newContext({
+      const workerContext = await newStealthContext(browser, {
         storageState: fs.existsSync(STORAGE_PATH) ? STORAGE_PATH : undefined,
-        viewport: isHeadless ? { width: 1280, height: 900 } : null
+        viewport: isHeadless ? { width: 1366, height: 900 } : null
       });
       const workerPage = await workerContext.newPage();
 
@@ -776,7 +776,7 @@ async function uploadQuizQuestions(quizData, options = {}, onProgress = () => { 
     });
 
     try {
-      const verifyContext = await browser.newContext({ storageState: STORAGE_PATH });
+      const verifyContext = await newStealthContext(browser, { storageState: STORAGE_PATH });
       const verifyPage = await verifyContext.newPage();
       await verifyPage.goto(quizUrl, { waitUntil: 'networkidle', timeout: 30000 }).catch(() => {});
       await verifyPage.screenshot({ path: path.join(__dirname, '..', `published_quiz_${quizId}.png`), fullPage: true }).catch(() => {});
