@@ -277,6 +277,10 @@ async function loginWithCredentials({
   secret2FA,
   saveToEnv = true
 } = {}) {
+  if (process.env.RENDER === 'true' && process.env.ALLOW_CLOUD_LOGIN !== 'true') {
+    throw new Error('Session expired or missing on Render. Run "node scripts/push-session.js" on your local machine to refresh the Render session.');
+  }
+
   const email = (customEmail || process.env.LMS_EMAIL || '').trim();
   const password = (customPassword || process.env.LMS_PASSWORD || '').trim();
 
@@ -416,6 +420,9 @@ async function loginWithCredentials({
 async function ensureValidSession(onLog = console.log) {
   const info = getSessionInfo();
   if (!info.exists || info.isExpired) {
+    if (process.env.RENDER === 'true' && process.env.ALLOW_CLOUD_LOGIN !== 'true') {
+      throw new Error(`Session token is ${info.exists ? 'expired' : 'missing'} on Render. Run "node scripts/push-session.js" on your local machine to push a fresh session.`);
+    }
     onLog(`⚠️ Session token is ${info.exists ? 'expired' : 'missing'}. Refreshing session now...`);
     return await loginWithCredentials({ headless: true, onLog });
   }
