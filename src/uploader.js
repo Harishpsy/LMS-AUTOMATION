@@ -36,6 +36,24 @@ function wrapImagesInFigure(html) {
 }
 
 /**
+ * Ensure every question text paragraph is bolded if it does not already contain <strong>/<b>.
+ * Protects against source DOCX files that use complex-script bold (<w:bCs/>) or unbolded styles.
+ */
+function ensureQuestionBold(html) {
+  if (!html) return '';
+  if (!/<p[\s>]/i.test(html)) {
+    return /<(strong|b)\b/i.test(html) ? html : `<p><strong>${html}</strong></p>`;
+  }
+  return html.replace(/<p([^>]*)>([\s\S]*?)<\/p>/gi, (match, attrs, inner) => {
+    const trimmed = inner.trim();
+    if (!trimmed || /<(strong|b|figure|img|table)\b/i.test(trimmed)) {
+      return match;
+    }
+    return `<p${attrs}><strong>${trimmed}</strong></p>`;
+  });
+}
+
+/**
  * Safely set CKEditor 5 HTML data on an editable element, waiting up to 30s for it to display/initialize
  */
 async function setEditorData(page, editorIndex, htmlContent, timeoutMs = 30000) {
@@ -253,7 +271,8 @@ async function uploadSingleQuestion(page, courseId, quizId, q, index, total, wor
   }, { timeout: 15000 }).catch(() => {});
 
   // 1. Question Text — append tables/images that belong UNDER THE QUESTION
-  let questionHtml = q.questionHtml || `<p>${q.questionText}</p>`;
+  let questionHtml = q.questionHtml || `<p><strong>${q.questionText}</strong></p>`;
+  questionHtml = ensureQuestionBold(questionHtml);
 
   // Zone 1: tables that were found in the question body (before Answer line)
   const qTableImgs = q.questionTableImages || [];

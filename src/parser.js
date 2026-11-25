@@ -315,11 +315,11 @@ async function parseQuizDocx(filePath, options = {}) {
       questionHtml = questionAndOptions;
     }
 
-    // Strip leading question number (e.g. "2. ") from questionHtml so LMS does not get duplicate number prefixes
+    // Strip leading question number (e.g. "2. ") from questionHtml so LMS does not get duplicate number prefixes,
+    // while preserving opening inline formatting tags (such as <strong>)
     questionHtml = questionHtml
-      .replace(/(?:^|<p>)(?:\s*<[^>]+>\s*)*\d{1,3}\s*[\.\)\:\-]\s*(?:&nbsp;)?/i, (match) => {
-        return match.includes('<p>') ? '<p>' : '';
-      })
+      .replace(/^(\s*(?:<[^>]+>\s*)*)\d{1,3}\s*[\.\)\:\-]\s*(?:&nbsp;|\u00a0)?\s*/i, '$1')
+      .replace(/^(\s*(?:<p[^>]*>\s*)?)<(strong|b|em|i|span)>\s*<\/\2>\s*/i, '$1')
       .trim();
 
     // Also strip any trailing <table>...</table> tags from questionHtml so table headers do not leak into question text
