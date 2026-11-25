@@ -374,47 +374,6 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 /**
- * POST /api/auth/push-session
- * Accepts a Playwright storageState pushed from a trusted local machine and
- * saves it as storageState.json so Render never needs to log in through
- * Cloudflare. Protected by SESSION_PUSH_SECRET environment variable.
- *
- * Usage (from local machine):
- *   node scripts/push-session.js
- */
-app.post('/api/auth/push-session', express.json({ limit: '10mb' }), (req, res) => {
-  const pushSecret = (process.env.SESSION_PUSH_SECRET || '').trim();
-
-  if (!pushSecret) {
-    return res.status(503).json({
-      success: false,
-      error: 'SESSION_PUSH_SECRET is not configured on this server. Add it in Render → Environment.'
-    });
-  }
-
-  const incomingSecret = (req.headers['x-push-secret'] || '').trim();
-  if (!incomingSecret || incomingSecret !== pushSecret) {
-    console.warn('[push-session] Rejected: invalid or missing x-push-secret header.');
-    return res.status(401).json({ success: false, error: 'Unauthorized: invalid or missing x-push-secret header.' });
-  }
-
-  const { storageState } = req.body || {};
-  if (!storageState || typeof storageState !== 'object') {
-    return res.status(400).json({ success: false, error: 'Missing or invalid storageState in request body.' });
-  }
-
-  try {
-    fs.writeFileSync(STORAGE_PATH, JSON.stringify(storageState, null, 2), 'utf8');
-    const info = getSessionInfo();
-    console.log(`✅ [push-session] Session received from local machine. Valid for ${info.minutesRemaining} min — ${info.user || info.email}`);
-    res.json({ success: true, info });
-  } catch (err) {
-    console.error('[push-session] Failed to save storageState:', err.message);
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-/**
  * POST /api/auth/logout
  * Clears saved session file
  */
