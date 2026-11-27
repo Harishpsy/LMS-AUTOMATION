@@ -15,6 +15,20 @@ if errorlevel 1 (
     exit /b 1
 )
 
+where git >nul 2>&1
+if not errorlevel 1 (
+    if exist ".git" (
+        echo [Update] Checking for latest updates from GitHub...
+        git pull --ff-only origin main
+        if errorlevel 1 (
+            echo [Warning] Could not auto-pull ^(offline or local edits^). Continuing with local code...
+        ) else (
+            echo [Update] Code is up to date!
+        )
+        echo.
+    )
+)
+
 if not exist "node_modules\express" (
     echo [First-time setup] Installing Node.js dependencies ^(npm install^)...
     echo Please wait, this may take a minute...
