@@ -24,6 +24,7 @@ Quiz Document/
 Daily PDF/
 Monthly PDF/
 Monthly PDF Sample/
+Weekly PDF Sample/
 
 # NOTE: the old file ignored every *.png and the whole Templates/ folder, which dropped
 # public/assets/template/*.png, public/logo.png and the DOCX templates from git.

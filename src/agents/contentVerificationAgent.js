@@ -338,10 +338,12 @@ function verifyDocumentContent(sourceFilePath, parsedQuizData) {
       }
     }
 
-    // Verify explanation was not severely truncated
-    if (gExpl.length > 100 && pExpl.length < gExpl.length * 0.65) {
+    // Verify explanation was not severely truncated (strip markdown bold markers so formatting doesn't inflate length)
+    const cleanGExplLen = gExpl.replace(/\*\*/g, '').replace(/\s+/g, ' ').trim().length;
+    const cleanPExplLen = pExpl.replace(/\*\*/g, '').replace(/\s+/g, ' ').trim().length;
+    if (cleanGExplLen > 100 && cleanPExplLen < cleanGExplLen * 0.65) {
       explPass = false;
-      const issue = `Question #${qNum} Explanation Truncated (Parsed ${pExpl.length} chars, Source has ${gExpl.length} chars)`;
+      const issue = `Question #${qNum} Explanation Truncated (Parsed ${cleanPExplLen} chars, Source has ${cleanGExplLen} chars)`;
       qReport.issues.push(issue);
       anomalies.push({ type: 'EXPLANATION_TRUNCATED', qNum, message: issue });
     }

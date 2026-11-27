@@ -185,7 +185,7 @@ async function parseQuizDocx(filePath, options = {}) {
   const blocks = [];
   let lastValidQNum = 0;
   for (let b = 0; b < rawBlocks.length; b++) {
-    const rawBlock = rawBlocks[b];
+    let rawBlock = rawBlocks[b];
 
     // If block starts with a percentage (e.g. 42.7%), it is definitely not a question
     if (/^<p>(?:\s*<[^>]+>\s*)*\s*\d+(?:\.\d+)?\s*%/i.test(rawBlock)) {
@@ -202,6 +202,25 @@ async function parseQuizDocx(filePath, options = {}) {
     }
 
     const qNum = parseInt(m[1], 10);
+
+    // Re-attach option lines formatted with "." (e.g. "2. Option") that were split from this question before its Answer line
+    while (!blockHasAnswer(rawBlock) && b + 1 < rawBlocks.length) {
+      const nextBlock = rawBlocks[b + 1];
+      const nextMatch = nextBlock.match(/^<p>(?:\s*<[^>]+>\s*)*\s*(\d{1,3})\.\s*/i);
+      if (!nextMatch) break;
+      const nextQNum = parseInt(nextMatch[1], 10);
+      const currOpts = blockOptionsCount(rawBlock);
+      const nextOpts = blockOptionsCount(nextBlock);
+      const isOptionNumber = nextQNum >= 1 && nextQNum <= 5;
+      const isSeparateFullQuestions = currOpts >= 3 && nextOpts >= 3;
+      if (isOptionNumber && !isSeparateFullQuestions && (nextQNum !== qNum + 1 || currOpts >= 1)) {
+        rawBlock += nextBlock;
+        b++;
+      } else {
+        break;
+      }
+    }
+
     const hasAns = blockHasAnswer(rawBlock);
     const opts = blockOptionsCount(rawBlock);
 
