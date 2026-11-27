@@ -256,7 +256,7 @@ function buildQuestionsFragmentXml(questions, isTopicWise = true, isHindi = fals
     const bName = `_Sec_${sectionIndex + 1}`;
     sectionIndex++;
 
-    const headerXml = buildSectionHeaderXml(cleanTitle);
+    const headerXml = buildSectionHeaderXml(cleanTitle, 360, 180, 44);
     const headerWithBookmark = headerXml.replace(
       /(<w:pPr>[\s\S]*?<\/w:pPr>)/,
       `$1<w:bookmarkStart w:id="${bId}" w:name="${bName}"/><w:bookmarkEnd w:id="${bId}"/>`
@@ -265,8 +265,8 @@ function buildQuestionsFragmentXml(questions, isTopicWise = true, isHindi = fals
 
     qs.forEach((q, qIndex) => {
       const qNum = isTopicWise ? (qIndex + 1) : globalNum++;
-      // Standard inter-question spacing via w:before on the question paragraph itself (suppressed at top-of-page by Word)
-      const spaceBefore = (qIndex === 0) ? 0 : 160;
+      // Inter-question spacing via w:before on the question paragraph (suppressed at top-of-page by Word)
+      const spaceBefore = (qIndex === 0) ? 0 : 300;
       xml += buildQuestionXml(qNum, q.questionText, hyperlinkRegistry, spaceBefore, isHindi);
 
       if (q.statements && q.statements.length > 0) {

@@ -170,10 +170,14 @@ function buildQuestionXml(num, text, hyperlinkRegistry = null, spaceBefore = 40,
 }
 
 /**
- * Build OpenXML for a Section Header (Red, bold, centered Cambria 14pt, Heading 2 for TOC indexing)
+ * Build OpenXML for a Section Header (Red, bold, centered Cambria, Heading 2 for TOC indexing)
+ * @param {string} title - Section title text
+ * @param {number} spaceBefore - Space before paragraph in twips
+ * @param {number} spaceAfter - Space after paragraph in twips
+ * @param {number} fontSizeHalfPts - Font size in half-points (28 = 14pt, 44 = 22pt)
  */
-function buildSectionHeaderXml(title, spaceBefore = 360, spaceAfter = 160) {
-  return `<w:p><w:pPr><w:pStyle w:val="Heading2"/><w:keepNext/><w:spacing w:before="${spaceBefore}" w:after="${spaceAfter}" w:line="276" w:lineRule="auto"/><w:jc w:val="center"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:sz w:val="28"/><w:szCs w:val="28"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:color w:val="FF0000"/><w:sz w:val="28"/><w:szCs w:val="28"/></w:rPr><w:t>${escapeXml(title)}</w:t></w:r></w:p>`;
+function buildSectionHeaderXml(title, spaceBefore = 360, spaceAfter = 160, fontSizeHalfPts = 28) {
+  return `<w:p><w:pPr><w:pStyle w:val="Heading2"/><w:keepNext/><w:spacing w:before="${spaceBefore}" w:after="${spaceAfter}" w:line="276" w:lineRule="auto"/><w:jc w:val="center"/><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:sz w:val="${fontSizeHalfPts}"/><w:szCs w:val="${fontSizeHalfPts}"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Cambria" w:eastAsia="Cambria" w:hAnsi="Cambria" w:cs="Cambria"/><w:b/><w:bCs/><w:color w:val="FF0000"/><w:sz w:val="${fontSizeHalfPts}"/><w:szCs w:val="${fontSizeHalfPts}"/></w:rPr><w:t>${escapeXml(title)}</w:t></w:r></w:p>`;
 }
 
 /**
