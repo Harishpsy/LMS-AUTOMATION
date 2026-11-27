@@ -553,6 +553,9 @@ function injectQuestionsIntoTemplate({
 
 module.exports = {
   injectQuestionsIntoTemplate,
-  DEFAULT_MONTHLY_TEMPLATE_PATH
+  DEFAULT_MONTHLY_TEMPLATE_PATH,
+  MONTHLY_SECTION_ORDER,
+  normalizeSection,
+  getSectionOrderIndex
 };
 

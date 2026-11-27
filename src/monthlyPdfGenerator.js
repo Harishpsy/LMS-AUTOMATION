@@ -17,9 +17,14 @@ const {
   detectContentLanguage,
   buildDocxFile,
   getMonthFolder,
+  parseDateFromFilename,
   OUTPUT_DIR
 } = require('./quizParser');
 const { verifyQuizIntegrity } = require('./agents/questionVerifier');
+const {
+  verifyMonthlyCompilation,
+  verifyGeneratedMonthlyDocx
+} = require('./agents/monthlyOrderVerifier');
 
 /**
  * Generate Monthly Topic-Wise Quiz (creates English monthly from English files, Hindi monthly from Hindi files)
@@ -32,8 +37,25 @@ async function generateMonthlyQuiz(sourceFolderPath, monthLabel, onLog) {
   } else if (fs.existsSync(sourceFolderPath)) {
     files = fs.readdirSync(sourceFolderPath)
       .filter(f => f.endsWith('.docx') && !f.startsWith('~$'))
-      .map(f => path.join(sourceFolderPath, f))
-      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+      .map(f => ({
+        name: f,
+        fullPath: path.join(sourceFolderPath, f),
+        parsedDate: parseDateFromFilename(f)
+      }))
+      .sort((a, b) => {
+        const aMonth = a.parsedDate ? a.parsedDate.monthFolder : '';
+        const bMonth = b.parsedDate ? b.parsedDate.monthFolder : '';
+        if (aMonth && bMonth && aMonth !== bMonth) {
+          return aMonth.localeCompare(bMonth);
+        }
+        const aDay = a.parsedDate ? a.parsedDate.dayNumber : 0;
+        const bDay = b.parsedDate ? b.parsedDate.dayNumber : 0;
+        if (aDay && bDay && aDay !== bDay) {
+          return aDay - bDay;
+        }
+        return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+      })
+      .map(item => item.fullPath);
   }
 
   if (files.length === 0) throw new Error('No .docx files found in ' + sourceFolderPath);
@@ -42,14 +64,29 @@ async function generateMonthlyQuiz(sourceFolderPath, monthLabel, onLog) {
   const englishQuestions = [];
   const hindiQuestions = [];
   const mergedTableMap = {};
+  const tableCollisions = [];
 
-  for (const f of files) {
+  for (let fileIdx = 0; fileIdx < files.length; fileIdx++) {
+    const f = files[fileIdx];
+    const fileBase = path.basename(f);
+    const fileDate = parseDateFromFilename(fileBase);
     try {
       const parsed = await parseDailySource(f);
       if (parsed.tableMap) {
-        Object.assign(mergedTableMap, parsed.tableMap);
+        for (const [tblKey, tblXml] of Object.entries(parsed.tableMap)) {
+          if (mergedTableMap[tblKey]) {
+            tableCollisions.push({ id: tblKey, file: fileBase });
+          }
+          mergedTableMap[tblKey] = tblXml;
+        }
       }
-      const std = standardizeQuestions(parsed.questions, parsed.dateString, 'monthly');
+      const std = standardizeQuestions(parsed.questions, parsed.dateString, 'monthly').map(q => ({
+        ...q,
+        _sourceFile: fileBase,
+        _sourceDay: fileDate ? fileDate.dayNumber : 0,
+        _sourceMonth: fileDate ? fileDate.monthFolder : '',
+        _sourceFileIndex: fileIdx
+      }));
 
       // 1-to-1 Ground-Truth Verification for each source document
       const auditReport = verifyQuizIntegrity(f, std, log);
@@ -80,6 +117,13 @@ async function generateMonthlyQuiz(sourceFolderPath, monthLabel, onLog) {
     type: 'success',
     message: `🎯 [Monthly Verification Agent] Compilation Verified: ${files.length} source file(s) processed, ${totalVerified} total questions intact (${englishQuestions.length} English, ${hindiQuestions.length} Hindi).`
   });
+
+  verifyMonthlyCompilation({
+    files,
+    questions: [...englishQuestions, ...hindiQuestions],
+    tableMap: mergedTableMap,
+    tableCollisions
+  }, log);
 
   const generatedFiles = [];
   const monthFolder = getMonthFolder(monthLabel);
@@ -116,6 +160,7 @@ async function generateMonthlyQuiz(sourceFolderPath, monthLabel, onLog) {
         isHindi: false,
         tableMap: mergedTableMap
       });
+      verifyGeneratedMonthlyDocx(enDocx, englishQuestions, log);
     } else {
       await buildDocxFile({
         title: `Monthly Current Affairs Q&A – ${monthLabel}`,
@@ -155,6 +200,7 @@ async function generateMonthlyQuiz(sourceFolderPath, monthLabel, onLog) {
         isHindi: true,
         tableMap: mergedTableMap
       });
+      verifyGeneratedMonthlyDocx(hiDocx, hindiQuestions, log);
     } else {
       await buildDocxFile({
         title: `मासिक करेंट अफेयर्स प्रश्नोत्तरी – ${monthLabel}`,

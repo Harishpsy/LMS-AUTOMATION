@@ -32,6 +32,7 @@ const SECTION_HEADERS = [
   'NATIONAL AFFAIRS', 'INTERNATIONAL AFFAIRS', 'BANKING AND FINANCE', 'BANKING & FINANCE',
   'ECONOMY AND BUSINESS', 'ECONOMY & BUSINESS', "MoU'S AND AGREEMENTS", 'MoU AND AGREEMENTS',
   'APPOINTMENTS AND RESIGNATIONS', 'APPOINTMENTS & RESIGNATIONS',
+  'APPOINTMENTS AND RESIGNATION', 'APPOINTMENTS & RESIGNATION',
   'AWARDS AND RECOGNITIONS', 'AWARDS & RECOGNITIONS',
   'SUMMITS, CONFERENCES', 'SUMMITS AND CONFERENCES', 'COMMITTEE AND MEETING',
   'INDEX', 'ACQUISITION AND MERGERS', 'ACQUISITIONS & MERGERS',
@@ -41,6 +42,8 @@ const SECTION_HEADERS = [
   'ENVIRONMENT', 'CURRENT STATIC BANKING', 'CA STATIC GK', 'GOVT SCHEMES',
   'VISITS', 'STATIC', 'STATE NEWS', 'RANKINGS AND REPORTS', 'APP & WEB PORTAL', 'APPS & WEB PORTALS', 'APP AND WEB PORTAL'
 ];
+
+let globalTableCounter = 0;
 
 function isSectionHeader(line) {
   if (!line) return false;
@@ -347,14 +350,13 @@ function extractElementsFromDocx(filePath) {
     let match;
     const lines = [];
     const tableMap = {};
-    let tblCount = 0;
 
     while ((match = itemRegex.exec(bodyContent)) !== null) {
       const tag = match[1];
       const rawXml = match[0];
 
       if (tag === 'tbl') {
-        const tableId = `__TABLE_PLACEHOLDER_${tblCount++}__`;
+        const tableId = `__TABLE_PLACEHOLDER_${++globalTableCounter}__`;
         tableMap[tableId] = styleAffairsCloudTable(rawXml);
         lines.push(tableId);
         continue;
